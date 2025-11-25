@@ -1,0 +1,83 @@
+/* Homepage Suggestions Block Styles */
+
+.homepage-suggestions {
+  padding: 20px 0;
+}
+
+.suggestions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (width >= 900px) {
+  .suggestions-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.suggestion-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  margin: 0;
+}
+
+.suggestion-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
+  border-color: var(--color-primary);
+}
+
+.suggestion-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestion-card h3 {
+  font-size: var(--body-font-size-s);
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text-color);
+}
+
+.suggestion-card p {
+  font-size: var(--body-font-size-xs);
+  color: var(--text-color-light);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.suggestion-arrow {
+  flex-shrink: 0;
+  color: var(--text-color-light);
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.suggestion-card:hover .suggestion-arrow {
+  color: var(--color-primary);
+  transform: translateX(4px);
+}
+
+/* Mobile adjustments */
+@media (width < 600px) {
+  .suggestions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .suggestion-card {
+    padding: 16px;
+  }
+
+  .suggestion-card h3 {
+    font-size: var(--body-font-size-xs);
+  }
+}

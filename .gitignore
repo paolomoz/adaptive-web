@@ -7,3 +7,17 @@ helix-importer-ui
 .DS_Store
 *.bak
 .idea
+
+# Cloudflare Workers
+workers/node_modules/*
+workers/.wrangler/*
+
+# Environment variables (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# Editor/IDE
+.vscode/settings.json
+*.swp
+*.swo

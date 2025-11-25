@@ -1,0 +1,85 @@
+/* CTA Section Block Styles */
+
+.cta-section {
+  background-color: var(--color-secondary);
+  color: white;
+  padding: 60px 24px;
+  margin: 0 -24px;
+  text-align: center;
+}
+
+@media (width >= 900px) {
+  .cta-section {
+    padding: 80px 32px;
+    margin: 0 -32px;
+  }
+}
+
+.cta-container {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.cta-section h2 {
+  font-size: var(--heading-font-size-l);
+  margin: 0 0 16px;
+  color: white;
+}
+
+@media (width >= 900px) {
+  .cta-section h2 {
+    font-size: var(--heading-font-size-xl);
+  }
+}
+
+.cta-section p {
+  font-size: var(--body-font-size-s);
+  margin: 0 0 32px;
+  opacity: 0.9;
+  line-height: 1.6;
+}
+
+.cta-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cta-section .button {
+  padding: 14px 28px;
+  font-size: var(--body-font-size-s);
+  font-weight: 600;
+}
+
+.cta-section .button:not(.secondary) {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.cta-section .button:not(.secondary):hover {
+  background-color: var(--color-primary-light);
+}
+
+.cta-section .button.secondary {
+  background-color: transparent;
+  border: 2px solid white;
+  color: white;
+}
+
+.cta-section .button.secondary:hover {
+  background-color: rgb(255 255 255 / 10%);
+}
+
+/* Mobile adjustments */
+@media (width < 600px) {
+  .cta-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cta-section .button {
+    width: 100%;
+    max-width: 280px;
+  }
+}

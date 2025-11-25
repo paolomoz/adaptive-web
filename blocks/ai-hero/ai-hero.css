@@ -1,0 +1,124 @@
+/* AI Hero Block Styles */
+
+.ai-hero {
+  position: relative;
+  min-height: 400px;
+  margin: 0 -24px;
+  overflow: hidden;
+}
+
+@media (width >= 900px) {
+  .ai-hero {
+    min-height: 500px;
+    margin: 0 -32px;
+  }
+}
+
+.ai-hero-content {
+  position: relative;
+  min-height: inherit;
+  display: flex;
+  align-items: center;
+}
+
+.ai-hero-image {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.ai-hero-image.skeleton {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  animation: heroShimmer 2s infinite;
+}
+
+@keyframes heroShimmer {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
+}
+
+.ai-hero-image picture,
+.ai-hero-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Gradient overlay for text readability */
+.ai-hero-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 70%) 0%,
+    rgb(0 0 0 / 50%) 50%,
+    rgb(0 0 0 / 20%) 100%
+  );
+  z-index: 2;
+}
+
+.ai-hero-text {
+  position: relative;
+  z-index: 3;
+  color: white;
+  padding: 40px 24px;
+  max-width: 600px;
+}
+
+@media (width >= 900px) {
+  .ai-hero-text {
+    padding: 60px 48px;
+  }
+}
+
+.ai-hero-text h1 {
+  font-size: var(--heading-font-size-xl);
+  margin: 0 0 16px;
+  line-height: 1.2;
+  text-shadow: 0 2px 4px rgb(0 0 0 / 30%);
+}
+
+@media (width >= 900px) {
+  .ai-hero-text h1 {
+    font-size: var(--heading-font-size-xxl);
+  }
+}
+
+.ai-hero-text p {
+  font-size: var(--body-font-size-m);
+  margin: 0 0 24px;
+  opacity: 0.95;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 30%);
+}
+
+.ai-hero-text .button {
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  font-size: var(--body-font-size-s);
+  font-weight: 600;
+}
+
+.ai-hero-text .button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+/* Tags/keywords display */
+.ai-hero-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.ai-hero-tag {
+  background: rgb(255 255 255 / 20%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: var(--body-font-size-xs);
+  backdrop-filter: blur(4px);
+}

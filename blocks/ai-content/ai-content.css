@@ -1,0 +1,43 @@
+/* AI Content Block Styles */
+
+.ai-content {
+  padding: 20px 0;
+}
+
+.ai-content-body {
+  max-width: 800px;
+}
+
+.ai-content-body p {
+  font-size: var(--body-font-size-m);
+  line-height: 1.8;
+  color: var(--text-color);
+  margin-bottom: 1.5em;
+}
+
+.ai-content-body p:last-of-type {
+  margin-bottom: 0;
+}
+
+.ai-content-cta {
+  margin-top: 24px;
+}
+
+.ai-content-cta .button {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.ai-content-cta .button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+/* Drop cap for first paragraph (optional) */
+.ai-content-body p:first-of-type::first-letter {
+  float: left;
+  font-size: 3em;
+  line-height: 1;
+  padding-right: 8px;
+  color: var(--color-primary);
+  font-weight: bold;
+}

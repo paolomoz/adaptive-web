@@ -13,6 +13,16 @@ import {
   loadCSS,
 } from './aem.js';
 
+import { initRouter, getPageMode, getUrlParams, onPopState } from './router.js';
+import { generatePage, getPage, isConfigured, isDemoMode, getMockPageData } from './api-client.js';
+import {
+  renderGeneratedPage,
+  renderHomepage,
+  renderLoading,
+  renderError,
+} from './page-renderer.js';
+import { getSuggestedTopics } from './supabase-client.js';
+
 /**
  * Builds hero block and prepends to main in a new section.
  * @param {Element} main The container element
@@ -138,10 +148,234 @@ function loadDelayed() {
   // load anything that can be postponed to the latest here
 }
 
+/**
+ * Check if current page is the adaptive app
+ * @returns {boolean}
+ */
+function isAdaptiveApp() {
+  // Check for URL parameters that indicate adaptive mode
+  const { id, q } = getUrlParams();
+  return id || q || window.location.pathname === '/';
+}
+
+/**
+ * Handle adaptive page routing and rendering
+ * @param {Element} main - Main content element
+ */
+async function handleAdaptivePage(main) {
+  const mode = getPageMode();
+  const params = getUrlParams();
+  const demoMode = isDemoMode();
+
+  try {
+    switch (mode) {
+      case 'generate': {
+        // Show loading state
+        renderLoading(main);
+
+        // Generate new page (use mock data in demo mode)
+        let pageData;
+        if (demoMode) {
+          // Simulate loading delay in demo mode
+          await new Promise((resolve) => { setTimeout(resolve, 1500); });
+          pageData = getMockPageData(params.q);
+        } else {
+          pageData = await generatePage(params.q);
+        }
+
+        // Render the generated content
+        await renderGeneratedPage(pageData, main);
+        break;
+      }
+
+      case 'view': {
+        // Show loading state
+        renderLoading(main);
+
+        // Fetch existing page (use mock data in demo mode)
+        let pageData;
+        if (demoMode) {
+          await new Promise((resolve) => { setTimeout(resolve, 500); });
+          pageData = getMockPageData('Sample Page');
+        } else {
+          pageData = await getPage(params.id);
+        }
+
+        if (pageData) {
+          await renderGeneratedPage(pageData, main);
+        } else {
+          renderError(main, 'Page not found');
+        }
+        break;
+      }
+
+      case 'homepage':
+      default: {
+        // Load suggested topics and render homepage
+        let topics = [];
+        if (!demoMode) {
+          try {
+            topics = await getSuggestedTopics();
+          } catch (e) {
+            // Use defaults from homepage-suggestions block
+          }
+        }
+        await renderHomepage(topics, main);
+        break;
+      }
+    }
+  } catch (error) {
+    console.error('Adaptive page error:', error);
+    renderError(main, error.message || 'Something went wrong');
+  }
+}
+
+/**
+ * Set up navigation event handlers
+ * @param {Element} main - Main content element
+ */
+function setupNavigation(main) {
+  const demoMode = isDemoMode();
+
+  // Handle custom navigation events
+  window.addEventListener('adaptive-navigate', async (e) => {
+    const { mode, query, pageId } = e.detail;
+
+    try {
+      switch (mode) {
+        case 'generate':
+          renderLoading(main);
+          let newPage;
+          if (demoMode) {
+            await new Promise((resolve) => { setTimeout(resolve, 1500); });
+            newPage = getMockPageData(query);
+          } else {
+            newPage = await generatePage(query);
+          }
+          await renderGeneratedPage(newPage, main);
+          break;
+
+        case 'view':
+          renderLoading(main);
+          let existingPage;
+          if (demoMode) {
+            await new Promise((resolve) => { setTimeout(resolve, 500); });
+            existingPage = getMockPageData('Sample Page');
+          } else {
+            existingPage = await getPage(pageId);
+          }
+          if (existingPage) {
+            await renderGeneratedPage(existingPage, main);
+          } else {
+            renderError(main, 'Page not found');
+          }
+          break;
+
+        case 'homepage':
+        default:
+          let topics = [];
+          if (!demoMode) {
+            try {
+              topics = await getSuggestedTopics();
+            } catch (e) {
+              // Use defaults
+            }
+          }
+          await renderHomepage(topics, main);
+          break;
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      renderError(main, error.message);
+    }
+  });
+
+  // Handle browser back/forward
+  onPopState(async ({ mode, id, q }) => {
+    try {
+      if (mode === 'generate' && q) {
+        renderLoading(main);
+        let pageData;
+        if (demoMode) {
+          await new Promise((resolve) => { setTimeout(resolve, 1500); });
+          pageData = getMockPageData(q);
+        } else {
+          pageData = await generatePage(q);
+        }
+        await renderGeneratedPage(pageData, main);
+      } else if (mode === 'view' && id) {
+        renderLoading(main);
+        let pageData;
+        if (demoMode) {
+          await new Promise((resolve) => { setTimeout(resolve, 500); });
+          pageData = getMockPageData('Sample Page');
+        } else {
+          pageData = await getPage(id);
+        }
+        if (pageData) {
+          await renderGeneratedPage(pageData, main);
+        }
+      } else {
+        let topics = [];
+        if (!demoMode) {
+          try {
+            topics = await getSuggestedTopics();
+          } catch (e) {
+            // Use defaults
+          }
+        }
+        await renderHomepage(topics, main);
+      }
+    } catch (error) {
+      renderError(main, error.message);
+    }
+  });
+}
+
 async function loadPage() {
-  await loadEager(document);
-  await loadLazy(document);
-  loadDelayed();
+  let main = document.querySelector('main');
+
+  // Check if API is configured and we're in adaptive mode
+  if (isConfigured() && isAdaptiveApp()) {
+    // Ensure main element exists for adaptive mode
+    if (!main) {
+      main = document.createElement('main');
+      document.body.appendChild(main);
+    }
+
+    // Ensure header/footer elements exist
+    if (!document.querySelector('header')) {
+      const header = document.createElement('header');
+      document.body.insertBefore(header, main);
+    }
+    if (!document.querySelector('footer')) {
+      const footer = document.createElement('footer');
+      document.body.appendChild(footer);
+    }
+
+    // Initialize router
+    initRouter();
+
+    // Show body immediately for app mode
+    document.body.classList.add('appear');
+
+    // Set up navigation handlers
+    setupNavigation(main);
+
+    // Handle initial page load
+    await handleAdaptivePage(main);
+
+    // Load header/footer
+    loadHeader(document.querySelector('header'));
+    loadFooter(document.querySelector('footer'));
+
+    loadDelayed();
+  } else {
+    // Standard EDS page flow
+    await loadEager(document);
+    await loadLazy(document);
+    loadDelayed();
+  }
 }
 
 loadPage();
