@@ -3,7 +3,7 @@
  * Generates images for an existing page
  */
 
-import { generateImages as generateDalleImages } from './lib/dalle.js';
+import { generateImages as generateImagenImages } from './lib/imagen.js';
 import { createClient } from './lib/supabase.js';
 
 /**
@@ -31,8 +31,14 @@ export async function generateImages(body, env) {
     throw new Error('No valid prompts provided');
   }
 
-  // Generate images with DALL-E
-  const images = await generateDalleImages(validPrompts, env.OPENAI_API_KEY);
+  // Generate images with Imagen 3 (via Vertex AI)
+  const images = await generateImagenImages(
+    validPrompts,
+    env.GOOGLE_SERVICE_ACCOUNT_KEY,
+    env.GOOGLE_CLOUD_PROJECT,
+    env.IMAGES,
+    pageId,
+  );
 
   // Get current page data
   const supabase = createClient(env);

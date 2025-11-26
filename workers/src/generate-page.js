@@ -5,7 +5,7 @@
 
 import { generateContent } from './lib/claude.js';
 import { createClient } from './lib/supabase.js';
-import { generateImages as generateDalleImages } from './lib/dalle.js';
+import { generateImages as generateImagenImages } from './lib/imagen.js';
 
 /**
  * Extract image prompts from generated content
@@ -44,8 +44,14 @@ async function generateImagesBackground(pageId, prompts, env) {
   try {
     const supabase = createClient(env);
 
-    // Generate images with DALL-E
-    const images = await generateDalleImages(prompts, env.OPENAI_API_KEY);
+    // Generate images with Imagen 3 (via Vertex AI)
+    const images = await generateImagenImages(
+      prompts,
+      env.GOOGLE_SERVICE_ACCOUNT_KEY,
+      env.GOOGLE_CLOUD_PROJECT,
+      env.IMAGES,
+      pageId,
+    );
 
     // Build update object
     const updates = { images_ready: true };
@@ -138,8 +144,11 @@ export async function generatePage(body, env, ctx) {
     };
   }
 
-  // Generate content with Claude
-  const content = await generateContent(query, env.ANTHROPIC_API_KEY);
+  // Generate content with Claude (with RAG if OPENAI_API_KEY is configured)
+  const ragOptions = env.OPENAI_API_KEY
+    ? { supabase, openaiApiKey: env.OPENAI_API_KEY }
+    : {};
+  const { content, sourceIds } = await generateContent(query, env.ANTHROPIC_API_KEY, ragOptions);
 
   // Prepare page data for database
   const pageData = {
@@ -153,6 +162,8 @@ export async function generatePage(body, env, ctx) {
     cta: content.cta || {},
     related: content.related || [],
     images_ready: false,
+    rag_enabled: sourceIds.length > 0,
+    rag_source_ids: sourceIds.length > 0 ? sourceIds : null,
   };
 
   // Save to database

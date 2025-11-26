@@ -3,6 +3,8 @@
  * Generates structured content for AdaptiveWeb pages
  */
 
+import { retrieveContext } from './rag.js';
+
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-20250514';
 
@@ -97,9 +99,33 @@ Guidelines:
  * Uses prompt caching to reduce latency and costs for the large system prompt
  * @param {string} query - User's search query
  * @param {string} apiKey - Anthropic API key
- * @returns {Promise<object>} Parsed content object
+ * @param {object} options - Optional RAG options
+ * @param {object} options.supabase - Supabase client for RAG
+ * @param {string} options.openaiApiKey - OpenAI API key for embeddings
+ * @returns {Promise<{content: object, sourceIds: string[]}>} Parsed content and source IDs
  */
-export async function generateContent(query, apiKey) {
+export async function generateContent(query, apiKey, options = {}) {
+  const { supabase, openaiApiKey } = options;
+
+  // RAG: Retrieve relevant context if configured
+  let ragContext = '';
+  let sourceIds = [];
+
+  if (supabase && openaiApiKey) {
+    try {
+      const ragResult = await retrieveContext(query, openaiApiKey, supabase);
+      ragContext = ragResult.context;
+      sourceIds = ragResult.sourceIds;
+    } catch (ragError) {
+      console.error('RAG retrieval failed, continuing without context:', ragError);
+    }
+  }
+
+  // Build user message with optional RAG context
+  const userMessage = `Generate content for this Vitamix-related query: "${query}"
+${ragContext}
+Remember to respond with ONLY valid JSON matching the schema. No explanations or markdown.`;
+
   const response = await fetch(CLAUDE_API_URL, {
     method: 'POST',
     headers: {
@@ -121,9 +147,7 @@ export async function generateContent(query, apiKey) {
       messages: [
         {
           role: 'user',
-          content: `Generate content for this Vitamix-related query: "${query}"
-
-Remember to respond with ONLY valid JSON matching the schema. No explanations or markdown.`,
+          content: userMessage,
         },
       ],
     }),
@@ -157,7 +181,8 @@ Remember to respond with ONLY valid JSON matching the schema. No explanations or
     }
     jsonText = jsonText.trim();
 
-    return JSON.parse(jsonText);
+    const content = JSON.parse(jsonText);
+    return { content, sourceIds };
   } catch (parseError) {
     console.error('Failed to parse Claude response:', textContent.text);
     throw new Error('Invalid JSON response from Claude');

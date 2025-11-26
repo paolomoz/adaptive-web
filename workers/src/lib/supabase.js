@@ -123,5 +123,60 @@ export function createClient(env) {
       );
       return result || [];
     },
+
+    /**
+     * Search Vitamix content using vector similarity (RAG)
+     * @param {number[]} embedding - Query embedding vector
+     * @param {object} options - Search options
+     * @returns {Promise<Array>} Matching content chunks
+     */
+    async searchVitamixContent(embedding, options = {}) {
+      const { threshold = 0.7, limit = 5 } = options;
+
+      const url = `${baseUrl}/rest/v1/rpc/search_vitamix_content`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          query_embedding: embedding,
+          match_threshold: threshold,
+          match_count: limit,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Vector search error: ${response.status} - ${error}`);
+      }
+
+      return response.json();
+    },
+
+    /**
+     * Insert a Vitamix source (for scraping)
+     * @param {object} sourceData - Source data
+     * @returns {Promise<object>} Inserted source
+     */
+    async insertSource(sourceData) {
+      const result = await request('/vitamix_sources', {
+        method: 'POST',
+        body: JSON.stringify(sourceData),
+        headers: { ...headers, Prefer: 'return=representation,resolution=merge-duplicates' },
+      });
+      return result[0];
+    },
+
+    /**
+     * Insert content chunks with embeddings (for scraping)
+     * @param {Array} chunks - Array of chunk objects with embeddings
+     * @returns {Promise<Array>} Inserted chunks
+     */
+    async insertChunks(chunks) {
+      const result = await request('/vitamix_chunks', {
+        method: 'POST',
+        body: JSON.stringify(chunks),
+      });
+      return result;
+    },
   };
 }
