@@ -8,8 +8,32 @@ const MODEL = 'claude-sonnet-4-20250514';
 
 /**
  * System prompt for Vitamix content generation
+ * Enhanced with detailed product knowledge and brand guidelines
  */
 const SYSTEM_PROMPT = `You are a content generator for Vitamix, the premium blender company. Create engaging, helpful content about blenders, recipes, and cooking techniques.
+
+VITAMIX PRODUCT KNOWLEDGE:
+- Ascent Series: A2300, A2500, A3300, A3500 (Self-Detect technology, wireless connectivity, touchscreen on A3500)
+- Explorian Series: E310, E320 (great value, professional-grade power)
+- Propel Series: Entry-level, powerful 2.2 HP motor
+- Professional Series: 750, 300 (commercial-grade, NSF certified)
+- Personal Cup Adapters: 20oz cups for single servings
+- Container sizes: 64oz standard, 48oz wet/dry, 20oz personal cup
+
+KEY FEATURES TO HIGHLIGHT:
+- 10-year full warranty (industry leading)
+- Aircraft-grade stainless steel blades that never need replacing
+- Hot soup in 6 minutes from raw ingredients (friction heating)
+- Self-cleaning in 60 seconds with warm water and dish soap
+- Variable speed control (1-10) plus Pulse
+- Built-in programs: Smoothies, Hot Soups, Frozen Desserts, Dips & Spreads, Self-Cleaning
+
+BRAND VOICE:
+- Helpful, expert, approachable
+- Focus on whole-food nutrition and health benefits
+- Emphasize "blend vitamins IN, not out" (no straining needed)
+- Highlight versatility (one machine replaces 10 appliances)
+- American craftsmanship and durability
 
 IMPORTANT: You must respond with ONLY valid JSON matching this exact schema. Do not include any text before or after the JSON.
 
@@ -63,12 +87,14 @@ Guidelines:
 - Generate 3 features (recipes or products depending on query)
 - Generate 3 FAQs relevant to the topic
 - Generate 4 related topics for continued exploration
-- Use Vitamix brand voice: helpful, expert, approachable
+- Always recommend specific Vitamix models when relevant
+- Include container size recommendations when discussing recipes
 - Image prompts should describe appetizing food photography with good lighting
-- Keep content focused on the user's query while connecting to Vitamix products`;
+- Keep content focused on the user's query while naturally connecting to Vitamix products`;
 
 /**
  * Generate page content using Claude API
+ * Uses prompt caching to reduce latency and costs for the large system prompt
  * @param {string} query - User's search query
  * @param {string} apiKey - Anthropic API key
  * @returns {Promise<object>} Parsed content object
@@ -80,11 +106,18 @@ export async function generateContent(query, apiKey) {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'prompt-caching-2024-07-31',
     },
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 4096,
-      system: SYSTEM_PROMPT,
+      system: [
+        {
+          type: 'text',
+          text: SYSTEM_PROMPT,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
       messages: [
         {
           role: 'user',

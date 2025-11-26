@@ -475,3 +475,34 @@ export function renderError(container, message) {
     </div>
   `;
 }
+
+/**
+ * Update images in an already-rendered page when they become available
+ * Called via realtime subscription when images are generated
+ * @param {object} pageData - Updated page data with image URLs
+ * @param {Element} container - Container element (main)
+ */
+export function updatePageImages(pageData, container) {
+  // Update hero image
+  if (pageData.hero?.image_url) {
+    const heroImg = container.querySelector('.ai-hero-image');
+    if (heroImg && heroImg.classList.contains('skeleton')) {
+      heroImg.innerHTML = `<img src="${pageData.hero.image_url}" alt="${pageData.hero.title || 'Hero image'}" loading="eager">`;
+      heroImg.classList.remove('skeleton');
+    }
+  }
+
+  // Update feature card images
+  if (pageData.features?.length) {
+    const featureCards = container.querySelectorAll('.feature-card');
+    pageData.features.forEach((feature, index) => {
+      if (feature.image_url && featureCards[index]) {
+        const imgContainer = featureCards[index].querySelector('.feature-card-image');
+        if (imgContainer && imgContainer.classList.contains('skeleton')) {
+          imgContainer.innerHTML = `<img src="${feature.image_url}" alt="${feature.title || 'Feature image'}" loading="lazy">`;
+          imgContainer.classList.remove('skeleton');
+        }
+      }
+    });
+  }
+}

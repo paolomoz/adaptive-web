@@ -20,8 +20,36 @@ import {
   renderHomepage,
   renderLoading,
   renderError,
+  updatePageImages,
 } from './page-renderer.js';
-import { getSuggestedTopics } from './supabase-client.js';
+import { getSuggestedTopics, subscribeToPage, unsubscribeAll } from './supabase-client.js';
+
+// Track current page subscription cleanup function
+let currentPageUnsubscribe = null;
+
+/**
+ * Subscribe to realtime updates for a page's images
+ * @param {string} pageId - The page ID to subscribe to
+ * @param {Element} main - The main container element
+ */
+async function subscribeToPageImages(pageId, main) {
+  // Clean up any existing subscription
+  if (currentPageUnsubscribe) {
+    currentPageUnsubscribe();
+    currentPageUnsubscribe = null;
+  }
+
+  // Don't subscribe in demo mode
+  if (isDemoMode()) return;
+
+  // Subscribe to updates for this page
+  currentPageUnsubscribe = await subscribeToPage(pageId, (updatedPage) => {
+    // When images are ready, update the DOM
+    if (updatedPage.images_ready) {
+      updatePageImages(updatedPage, main);
+    }
+  });
+}
 
 /**
  * Builds hero block and prepends to main in a new section.
@@ -185,6 +213,11 @@ async function handleAdaptivePage(main) {
 
         // Render the generated content
         await renderGeneratedPage(pageData, main);
+
+        // Subscribe to realtime updates for images
+        if (pageData?.id && !pageData.images_ready) {
+          subscribeToPageImages(pageData.id, main);
+        }
         break;
       }
 
@@ -203,6 +236,11 @@ async function handleAdaptivePage(main) {
 
         if (pageData) {
           await renderGeneratedPage(pageData, main);
+
+          // Subscribe to realtime updates for images if not ready
+          if (pageData?.id && !pageData.images_ready) {
+            subscribeToPageImages(pageData.id, main);
+          }
         } else {
           renderError(main, 'Page not found');
         }
@@ -253,6 +291,10 @@ function setupNavigation(main) {
             newPage = await generatePage(query);
           }
           await renderGeneratedPage(newPage, main);
+          // Subscribe to realtime updates for images
+          if (newPage?.id && !newPage.images_ready) {
+            subscribeToPageImages(newPage.id, main);
+          }
           break;
 
         case 'view':
@@ -266,6 +308,10 @@ function setupNavigation(main) {
           }
           if (existingPage) {
             await renderGeneratedPage(existingPage, main);
+            // Subscribe to realtime updates for images
+            if (existingPage?.id && !existingPage.images_ready) {
+              subscribeToPageImages(existingPage.id, main);
+            }
           } else {
             renderError(main, 'Page not found');
           }
@@ -303,6 +349,10 @@ function setupNavigation(main) {
           pageData = await generatePage(q);
         }
         await renderGeneratedPage(pageData, main);
+        // Subscribe to realtime updates for images
+        if (pageData?.id && !pageData.images_ready) {
+          subscribeToPageImages(pageData.id, main);
+        }
       } else if (mode === 'view' && id) {
         renderLoading(main);
         let pageData;
@@ -314,6 +364,10 @@ function setupNavigation(main) {
         }
         if (pageData) {
           await renderGeneratedPage(pageData, main);
+          // Subscribe to realtime updates for images
+          if (pageData?.id && !pageData.images_ready) {
+            subscribeToPageImages(pageData.id, main);
+          }
         }
       } else {
         let topics = [];
@@ -355,6 +409,21 @@ async function loadPage() {
 
     // Initialize router
     initRouter();
+
+    // Load block CSS files for adaptive mode
+    const blockCSS = [
+      'search-bar',
+      'ai-hero',
+      'ai-content',
+      'feature-cards',
+      'faq-accordion',
+      'cta-section',
+      'related-topics',
+      'homepage-suggestions',
+    ];
+    blockCSS.forEach((block) => {
+      loadCSS(`${window.hlx.codeBasePath}/blocks/${block}/${block}.css`);
+    });
 
     // Show body immediately for app mode
     document.body.classList.add('appear');

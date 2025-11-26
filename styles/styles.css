@@ -416,6 +416,22 @@ main .section.dark a {
   100% { background-position: -200% 0; }
 }
 
+/* Image fade-in animation for dynamically loaded images */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.ai-hero-image img,
+.feature-card-image img {
+  animation: fadeIn 0.3s ease-in;
+}
+
 /* Card Grid Layout */
 .card-grid {
   display: grid;

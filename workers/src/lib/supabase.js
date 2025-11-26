@@ -77,6 +77,20 @@ export function createClient(env) {
     },
 
     /**
+     * Find a cached page by query (for cache lookup)
+     * @param {string} normalizedQuery - Lowercase trimmed query
+     * @param {string} minCreatedAt - ISO date string for TTL cutoff
+     */
+    async findPageByQuery(normalizedQuery, minCreatedAt) {
+      // Use ilike for case-insensitive match
+      const encodedQuery = encodeURIComponent(normalizedQuery);
+      const result = await request(
+        `/generated_pages?query=ilike.${encodedQuery}&created_at=gte.${minCreatedAt}&order=created_at.desc&limit=1`,
+      );
+      return result[0] || null;
+    },
+
+    /**
      * Add search history entry
      */
     async addHistory(sessionId, query, pageId) {

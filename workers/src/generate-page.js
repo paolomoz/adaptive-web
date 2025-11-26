@@ -88,6 +88,26 @@ async function generateImagesBackground(pageId, prompts, env) {
 }
 
 /**
+ * Normalize query for cache lookup
+ * @param {string} query - User query
+ * @returns {string} Normalized query
+ */
+function normalizeQuery(query) {
+  return query.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Check for cached page with same query (24-hour TTL)
+ * @param {string} query - Normalized query
+ * @param {object} supabase - Supabase client
+ * @returns {object|null} Cached page or null
+ */
+async function getCachedPage(query, supabase) {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  return supabase.findPageByQuery(query, twentyFourHoursAgo);
+}
+
+/**
  * Generate page handler
  * @param {object} body - Request body with query and session_id
  * @param {object} env - Worker environment
@@ -102,6 +122,20 @@ export async function generatePage(body, env, ctx) {
 
   if (!sessionId) {
     throw new Error('Session ID is required');
+  }
+
+  const supabase = createClient(env);
+  const normalizedQuery = normalizeQuery(query);
+
+  // Check for cached page (24-hour TTL)
+  const cachedPage = await getCachedPage(normalizedQuery, supabase);
+  if (cachedPage) {
+    // Add to search history even for cached pages
+    await supabase.addHistory(sessionId, query, cachedPage.id);
+    return {
+      ...cachedPage,
+      cached: true,
+    };
   }
 
   // Generate content with Claude
@@ -122,7 +156,6 @@ export async function generatePage(body, env, ctx) {
   };
 
   // Save to database
-  const supabase = createClient(env);
   const page = await supabase.insertPage(pageData);
 
   // Add to search history
