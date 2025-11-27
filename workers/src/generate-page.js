@@ -495,30 +495,6 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
 
   console.log(`Claude generated ${contentAtoms.length} content atoms (type: ${contentType})`);
 
-  // Determine if we need product images for this page
-  // Conditions: comparison type, or table/comparison atoms, or query about models/warranty
-  let effectiveSourceImages = sourceImages;
-  const needsProductImages = (!sourceImages || sourceImages.length === 0) && (
-    contentType === 'comparison' ||
-    contentAtoms.some((a) => a.type === 'comparison' || a.type === 'table') ||
-    /\b(models?|warranty|compare|blenders?)\b/i.test(query)
-  );
-
-  if (needsProductImages) {
-    console.log('Page needs product images - fetching all product images');
-    try {
-      const allProducts = await supabase.getAllProductImages();
-      effectiveSourceImages = allProducts.map((p) => ({
-        sourceId: p.id,
-        title: p.title,
-        images: p.source_image_urls || p.r2_image_urls || [],
-      }));
-      console.log(`Fetched ${effectiveSourceImages.length} product images`);
-    } catch (err) {
-      console.error('Failed to fetch product images:', err);
-    }
-  }
-
   // Step 2: Gemini selects optimal block layout
   let layoutResult;
   try {
@@ -570,14 +546,7 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
     rag_source_ids: sourceIds.length > 0 ? sourceIds : null,
   };
 
-  // If we have source images (from RAG or fetched for comparison), apply them synchronously
-  const hasSourceImages = effectiveSourceImages && effectiveSourceImages.length > 0;
-  if (hasSourceImages) {
-    pageData = applySourceImagesToFlexiblePageData(pageData, effectiveSourceImages);
-    console.log('Applied source images to flexible page data');
-  }
-
-  // Always apply carousel image mapping (uses hardcoded URLs for known products)
+  // Apply carousel image mapping (uses official Vitamix product images for carousels)
   pageData = applyCarouselImageUrls(pageData);
   console.log('Applied carousel image URLs');
 
@@ -587,10 +556,11 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
   // Add to search history
   await supabase.addHistory(sessionId, query, page.id);
 
-  // Step 3: Handle images (background Imagen generation if no RAG images)
+  // Step 3: Always generate images with Imagen 3 (AI-generated images are better quality)
   const imagePrompts = extractImagePromptsFromAtoms(contentAtoms, metadata);
-  if (!hasSourceImages && imagePrompts.length > 0) {
+  if (imagePrompts.length > 0) {
     ctx.waitUntil(generateImagesBackgroundFlexible(page.id, imagePrompts, env));
+    console.log(`Queued ${imagePrompts.length} images for Imagen 3 generation`);
   }
 
   return {
@@ -613,7 +583,7 @@ async function generatePageLegacy(query, sessionId, supabase, env, ctx) {
   const { content, sourceIds, sourceImages } = await generateContent(query, env.ANTHROPIC_API_KEY, ragOptions);
 
   // Prepare page data for database
-  let pageData = {
+  const pageData = {
     query,
     content_type: content.type || 'article',
     keywords: content.keywords || [],
@@ -629,23 +599,17 @@ async function generatePageLegacy(query, sessionId, supabase, env, ctx) {
     rag_source_ids: sourceIds.length > 0 ? sourceIds : null,
   };
 
-  // If we have source images from RAG, apply them synchronously to pageData
-  const hasSourceImages = sourceImages && sourceImages.length > 0;
-  if (hasSourceImages) {
-    pageData = applySourceImagesToPageData(pageData, sourceImages);
-    console.log('Applied RAG source images synchronously');
-  }
-
   // Save to database
   const page = await supabase.insertPage(pageData);
 
   // Add to search history
   await supabase.addHistory(sessionId, query, page.id);
 
-  // Handle images: only need background generation for Imagen 3 fallback
+  // Always generate images with Imagen 3 (AI-generated images are better quality)
   const imagePrompts = extractImagePrompts(content);
-  if (!hasSourceImages && imagePrompts.length > 0) {
+  if (imagePrompts.length > 0) {
     ctx.waitUntil(generateImagesBackground(page.id, imagePrompts, env));
+    console.log(`Queued ${imagePrompts.length} images for Imagen 3 generation`);
   }
 
   return {
