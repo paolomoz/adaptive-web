@@ -98,12 +98,14 @@ LAYOUT RULES:
 3. End with 'cta-section' followed by 'related-topics'
 4. For recipes: include 'step-by-step' before the CTA
 5. For products: include 'specs-table' to show specifications
-6. For comparisons: ALWAYS use 'comparison-cards' - it shows an interactive grid where users can select products and compare them side-by-side in an overlay modal. Only use 'comparison-table' for very simple 2-product comparisons.
-7. Use 'text-section' when there are multiple descriptive paragraphs
-8. Include 'feature-cards' when feature_set atoms are present
-9. Include 'faq-accordion' when faq_set atoms are present
-10. Maximum 8 blocks per page to maintain focus
-11. For queries like "show all models", "compare blenders", "which vitamix" - ALWAYS use comparison-cards
+6. IMPORTANT - When a 'table' atom is present, ALWAYS include either 'comparison-table' or 'specs-table' to render it. Tables are explicitly requested content.
+7. For comparisons: prefer 'comparison-cards' for browsing/selecting products, but use 'comparison-table' when user explicitly asks for a "table" or when a table atom is present
+8. Use 'text-section' when there are multiple descriptive paragraphs
+9. Include 'feature-cards' when feature_set atoms are present
+10. Include 'faq-accordion' when faq_set atoms are present
+11. Maximum 8 blocks per page to maintain focus
+12. For queries like "show all models", "compare blenders", "which vitamix" - use comparison-cards
+13. For queries containing "table", "chart", "specs", "specifications" - MUST include comparison-table or specs-table
 
 RESPONSE FORMAT:
 Respond with ONLY valid JSON matching this schema:
@@ -141,13 +143,16 @@ Common mappings:
  * @param {string} contentType - Content type (recipe, product, comparison, guide)
  * @param {object} metadata - Page metadata from Claude
  * @param {string} apiKey - Gemini API key
+ * @param {string} originalQuery - Original user query (optional, for keyword detection)
  * @returns {Promise<{blocks: Array, rationale: string}>} Selected layout
  */
-export async function selectBlockLayout(contentAtoms, contentType, metadata, apiKey) {
+export async function selectBlockLayout(contentAtoms, contentType, metadata, apiKey, originalQuery = '') {
   // Build content summary for Gemini
   const atomSummary = summarizeAtoms(contentAtoms);
 
   const userPrompt = `Select the optimal block layout for this ${contentType} page.
+
+USER QUERY: "${originalQuery}"
 
 PAGE METADATA:
 - Title: ${metadata.title || 'Untitled'}
@@ -160,7 +165,8 @@ Select blocks that best present this content. Remember to:
 - Start with hero-banner
 - Include appropriate content-specific blocks for "${contentType}" type
 - End with cta-section and related-topics
-- Only include blocks that have matching content atoms`;
+- Only include blocks that have matching content atoms
+- If the user query contains "table", "chart", or "specs", you MUST include a table block`;
 
   const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
     method: 'POST',

@@ -426,13 +426,38 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
   // Step 2: Gemini selects optimal block layout
   let layoutResult;
   try {
-    layoutResult = await selectBlockLayout(contentAtoms, contentType, metadata, env.GEMINI_API_KEY);
+    layoutResult = await selectBlockLayout(contentAtoms, contentType, metadata, env.GEMINI_API_KEY, query);
     console.log(`Gemini selected layout: ${layoutResult.blocks.map((b) => b.block_type).join(', ')}`);
   } catch (geminiError) {
     console.error('Gemini layout selection failed, using fallback:', geminiError);
     // Use fallback layout when Gemini fails
     const { getFallbackLayout } = await import('./lib/gemini.js');
     layoutResult = getFallbackLayout(contentType, contentAtoms);
+  }
+
+  // Post-process: If query contains "table" and we have comparison data, ensure table block is included
+  const lowerQuery = query.toLowerCase();
+  const wantsTable = lowerQuery.includes('table') || lowerQuery.includes('chart') || lowerQuery.includes('specs');
+  const hasComparison = contentAtoms.some((a) => a.type === 'comparison');
+  const hasTableBlock = layoutResult.blocks.some((b) => b.block_type === 'comparison-table' || b.block_type === 'specs-table');
+
+  if (wantsTable && hasComparison && !hasTableBlock) {
+    // Replace comparison-cards with comparison-table, or add comparison-table after hero
+    const cardsIndex = layoutResult.blocks.findIndex((b) => b.block_type === 'comparison-cards');
+    const tableBlock = {
+      block_type: 'comparison-table',
+      atom_mappings: { items: 'comparison.items' },
+    };
+    if (cardsIndex >= 0) {
+      // Replace cards with table
+      layoutResult.blocks[cardsIndex] = tableBlock;
+      console.log('Replaced comparison-cards with comparison-table (user requested table)');
+    } else {
+      // Insert table after hero-banner
+      const heroIndex = layoutResult.blocks.findIndex((b) => b.block_type === 'hero-banner');
+      layoutResult.blocks.splice(heroIndex + 1, 0, tableBlock);
+      console.log('Added comparison-table block (user requested table)');
+    }
   }
 
   // Prepare page data for database
