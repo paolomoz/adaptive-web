@@ -1,6 +1,7 @@
 /**
  * Claude API Integration
- * Generates structured content for AdaptiveWeb pages
+ * Generates structured content atoms for AdaptiveWeb pages
+ * Content atoms are layout-agnostic content units that Gemini will arrange into blocks
  */
 
 import { retrieveContext } from './rag.js';
@@ -9,10 +10,130 @@ const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-20250514';
 
 /**
- * System prompt for Vitamix content generation
- * Enhanced with detailed product knowledge and brand guidelines
+ * System prompt for content atoms generation
+ * Generates pure content without layout decisions - Gemini will handle layout
  */
-const SYSTEM_PROMPT = `You are a content generator for Vitamix, the premium blender company. Create engaging, helpful content about blenders, recipes, and cooking techniques.
+const CONTENT_ATOMS_PROMPT = `You are a content generator for Vitamix, the premium blender company. Generate comprehensive content atoms (structured content units) that will be arranged into page layouts by a separate system.
+
+VITAMIX PRODUCT KNOWLEDGE:
+- Ascent Series: A2300 ($449), A2500 ($549), A3300 ($549), A3500 ($629) - Self-Detect technology, wireless connectivity, touchscreen on A3500
+- Explorian Series: E310 ($349), E320 ($449) - great value, professional-grade power
+- Propel Series: Entry-level, powerful 2.2 HP motor
+- Professional Series: 750 ($529), 300 - commercial-grade, NSF certified
+- Container sizes: 64oz standard, 48oz wet/dry, 20oz personal cup
+
+KEY FEATURES:
+- 10-year full warranty (industry leading)
+- Aircraft-grade stainless steel blades
+- Hot soup in 6 minutes (friction heating)
+- Self-cleaning in 60 seconds
+- Variable speed control (1-10) plus Pulse
+- Programs: Smoothies, Hot Soups, Frozen Desserts, Dips & Spreads, Self-Cleaning
+
+BRAND VOICE: Helpful, expert, approachable. Focus on whole-food nutrition. Emphasize versatility.
+
+IMPORTANT: Respond with ONLY valid JSON matching this schema:
+
+{
+  "content_type": "recipe|product|comparison|guide",
+  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "metadata": {
+    "title": "Main page title (max 60 chars)",
+    "description": "Brief summary (max 150 chars)",
+    "primary_image_prompt": "Detailed hero image description for AI generation"
+  },
+  "content_atoms": [
+    // Include relevant atoms based on content_type. Order doesn't matter - layout is determined separately.
+
+    // ALWAYS include for all types:
+    { "type": "heading", "level": 1, "text": "Main headline" },
+    { "type": "paragraph", "text": "Introductory paragraph with valuable information" },
+
+    // For FAQs (always include 3):
+    { "type": "faq_set", "items": [
+      {"question": "Question?", "answer": "Detailed answer (2-3 sentences)"}
+    ]},
+
+    // For features/products (always include 3):
+    { "type": "feature_set", "items": [
+      {"title": "Feature name", "description": "Brief description", "image_prompt": "Image description", "cta_text": "Learn More"}
+    ]},
+
+    // For related topics (always include 4):
+    { "type": "related", "items": [
+      {"title": "Related topic", "description": "Why explore this"}
+    ]},
+
+    // For CTA:
+    { "type": "cta", "title": "Call to action headline", "description": "Compelling reason", "buttons": [
+      {"text": "Primary Action", "style": "primary"},
+      {"text": "Secondary Action", "style": "secondary"}
+    ]},
+
+    // CONDITIONAL atoms based on content_type:
+
+    // For "recipe" - include steps:
+    { "type": "steps", "items": [
+      {"number": 1, "instruction": "Step instruction", "tip": "Optional tip"}
+    ]},
+
+    // For "product" - include specs table:
+    { "type": "table", "title": "Specifications", "headers": ["Feature", "Value"], "rows": [
+      ["Motor Power", "2.2 HP"],
+      ["Container Size", "64 oz"]
+    ]},
+
+    // For "comparison" - include ALL relevant products with STANDARDIZED specs:
+    { "type": "comparison", "items": [
+      {
+        "name": "Vitamix A3500",
+        "series": "Ascent",
+        "price": "$629",
+        "rating": 4.8,
+        "description": "Brief description of product features",
+        "specs": {
+          "series": "Ascent",
+          "price": "$629",
+          "motor": "2.2 HP",
+          "container": "64 oz",
+          "warranty": "10 years",
+          "programs": 5,
+          "smart": true,
+          "interface": "Touchscreen"
+        },
+        "pros": ["Pro 1", "Pro 2"],
+        "cons": ["Con 1"]
+      }
+    ]},
+    // IMPORTANT for comparison: Include ALL Vitamix models in the relevant category
+    // For "show all models" type queries, include at minimum: A3500, A2500, A2300, E320, E310, 750, Propel
+    // Always use consistent spec keys: series, price, motor, container, warranty, programs, smart, interface
+
+    // For detailed content - include paragraphs/lists:
+    { "type": "paragraph", "text": "Additional paragraph" },
+    { "type": "list", "style": "bullet", "items": ["Item 1", "Item 2", "Item 3"] }
+  ]
+}
+
+GUIDELINES:
+- Determine content_type based on query intent:
+  - "recipe" for smoothie/food queries
+  - "comparison" for "show all", "compare", "vs", "which", "best" queries
+  - "product" for single product queries
+  - "guide" for how-to queries
+- Always include: heading, intro paragraph, faq_set (3), feature_set (3), related (4), cta
+- For recipes: include steps with numbered instructions and tips
+- For products: include table with specifications
+- For comparisons: include comparison atom with ALL relevant products (6-10 products for "show all" queries)
+  - Each product must have: name, series, price, rating, description, specs object
+  - Specs must use consistent keys: series, price, motor, container, warranty, programs, smart, interface
+- Use RAG context data when available for accurate specs/prices
+- Image prompts should be detailed and appetizing for food, or professional for products`;
+
+/**
+ * Legacy system prompt for backward compatibility
+ */
+const LEGACY_SYSTEM_PROMPT = `You are a content generator for Vitamix, the premium blender company. Create engaging, helpful content about blenders, recipes, and cooking techniques.
 
 VITAMIX PRODUCT KNOWLEDGE:
 - Ascent Series: A2300, A2500, A3300, A3500 (Self-Detect technology, wireless connectivity, touchscreen on A3500)
@@ -95,33 +216,10 @@ Guidelines:
 - Keep content focused on the user's query while naturally connecting to Vitamix products`;
 
 /**
- * Generate page content using Claude API
- * Uses prompt caching to reduce latency and costs for the large system prompt
- * @param {string} query - User's search query
- * @param {string} apiKey - Anthropic API key
- * @param {object} options - Optional RAG options
- * @param {object} options.supabase - Supabase client for RAG
- * @param {string} options.openaiApiKey - OpenAI API key for embeddings
- * @returns {Promise<{content: object, sourceIds: string[]}>} Parsed content and source IDs
+ * Helper to call Claude API with a given prompt
+ * @private
  */
-export async function generateContent(query, apiKey, options = {}) {
-  const { supabase, openaiApiKey } = options;
-
-  // RAG: Retrieve relevant context if configured
-  let ragContext = '';
-  let sourceIds = [];
-
-  if (supabase && openaiApiKey) {
-    try {
-      const ragResult = await retrieveContext(query, openaiApiKey, supabase);
-      ragContext = ragResult.context;
-      sourceIds = ragResult.sourceIds;
-    } catch (ragError) {
-      console.error('RAG retrieval failed, continuing without context:', ragError);
-    }
-  }
-
-  // Build user message with optional RAG context
+async function callClaudeAPI(query, apiKey, systemPrompt, ragContext) {
   const userMessage = `Generate content for this Vitamix-related query: "${query}"
 ${ragContext}
 Remember to respond with ONLY valid JSON matching the schema. No explanations or markdown.`;
@@ -140,7 +238,7 @@ Remember to respond with ONLY valid JSON matching the schema. No explanations or
       system: [
         {
           type: 'text',
-          text: SYSTEM_PROMPT,
+          text: systemPrompt,
           cache_control: { type: 'ephemeral' },
         },
       ],
@@ -167,24 +265,99 @@ Remember to respond with ONLY valid JSON matching the schema. No explanations or
   }
 
   // Parse JSON response
-  try {
-    // Clean up potential markdown code blocks
-    let jsonText = textContent.text.trim();
-    if (jsonText.startsWith('```json')) {
-      jsonText = jsonText.slice(7);
-    }
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.slice(3);
-    }
-    if (jsonText.endsWith('```')) {
-      jsonText = jsonText.slice(0, -3);
-    }
-    jsonText = jsonText.trim();
+  let jsonText = textContent.text.trim();
+  if (jsonText.startsWith('```json')) {
+    jsonText = jsonText.slice(7);
+  }
+  if (jsonText.startsWith('```')) {
+    jsonText = jsonText.slice(3);
+  }
+  if (jsonText.endsWith('```')) {
+    jsonText = jsonText.slice(0, -3);
+  }
+  jsonText = jsonText.trim();
 
-    const content = JSON.parse(jsonText);
-    return { content, sourceIds };
+  return JSON.parse(jsonText);
+}
+
+/**
+ * Generate content atoms for flexible layout system (NEW)
+ * Used with Gemini layout selection for dynamic page layouts
+ * @param {string} query - User's search query
+ * @param {string} apiKey - Anthropic API key
+ * @param {object} options - Optional RAG options
+ * @returns {Promise<{contentAtoms: Array, contentType: string, metadata: object, sourceIds: string[], sourceImages: Array}>}
+ */
+export async function generateContentAtoms(query, apiKey, options = {}) {
+  const { supabase, openaiApiKey } = options;
+
+  // RAG: Retrieve relevant context if configured
+  let ragContext = '';
+  let sourceIds = [];
+  let sourceImages = [];
+
+  if (supabase && openaiApiKey) {
+    try {
+      const ragResult = await retrieveContext(query, openaiApiKey, supabase);
+      ragContext = ragResult.context;
+      sourceIds = ragResult.sourceIds;
+      sourceImages = ragResult.sourceImages || [];
+    } catch (ragError) {
+      console.error('RAG retrieval failed, continuing without context:', ragError);
+    }
+  }
+
+  try {
+    const content = await callClaudeAPI(query, apiKey, CONTENT_ATOMS_PROMPT, ragContext);
+
+    return {
+      contentAtoms: content.content_atoms || [],
+      contentType: content.content_type || 'guide',
+      metadata: content.metadata || { title: query, description: '', primary_image_prompt: '' },
+      keywords: content.keywords || [],
+      sourceIds,
+      sourceImages,
+    };
   } catch (parseError) {
-    console.error('Failed to parse Claude response:', textContent.text);
+    console.error('Failed to parse Claude content atoms response:', parseError);
+    throw new Error('Invalid JSON response from Claude');
+  }
+}
+
+/**
+ * Generate page content using Claude API (LEGACY - for backward compatibility)
+ * Uses the old fixed layout schema
+ * @param {string} query - User's search query
+ * @param {string} apiKey - Anthropic API key
+ * @param {object} options - Optional RAG options
+ * @param {object} options.supabase - Supabase client for RAG
+ * @param {string} options.openaiApiKey - OpenAI API key for embeddings
+ * @returns {Promise<{content: object, sourceIds: string[], sourceImages: Array}>} Parsed content, source IDs, and images
+ */
+export async function generateContent(query, apiKey, options = {}) {
+  const { supabase, openaiApiKey } = options;
+
+  // RAG: Retrieve relevant context if configured
+  let ragContext = '';
+  let sourceIds = [];
+  let sourceImages = [];
+
+  if (supabase && openaiApiKey) {
+    try {
+      const ragResult = await retrieveContext(query, openaiApiKey, supabase);
+      ragContext = ragResult.context;
+      sourceIds = ragResult.sourceIds;
+      sourceImages = ragResult.sourceImages || [];
+    } catch (ragError) {
+      console.error('RAG retrieval failed, continuing without context:', ragError);
+    }
+  }
+
+  try {
+    const content = await callClaudeAPI(query, apiKey, LEGACY_SYSTEM_PROMPT, ragContext);
+    return { content, sourceIds, sourceImages };
+  } catch (parseError) {
+    console.error('Failed to parse Claude response:', parseError);
     throw new Error('Invalid JSON response from Claude');
   }
 }

@@ -17,6 +17,7 @@ import { initRouter, getPageMode, getUrlParams, onPopState } from './router.js';
 import { generatePage, getPage, isConfigured, isDemoMode, getMockPageData } from './api-client.js';
 import {
   renderGeneratedPage,
+  renderFlexiblePage,
   renderHomepage,
   renderLoading,
   renderError,
@@ -26,6 +27,28 @@ import { getSuggestedTopics, subscribeToPage, unsubscribeAll } from './supabase-
 
 // Track current page subscription cleanup function
 let currentPageUnsubscribe = null;
+
+/**
+ * Check if page data uses the flexible pipeline (has layout_blocks)
+ * @param {object} pageData - Page data from API
+ * @returns {boolean} True if flexible pipeline
+ */
+function isFlexiblePipeline(pageData) {
+  return pageData && Array.isArray(pageData.layout_blocks) && pageData.layout_blocks.length > 0;
+}
+
+/**
+ * Render page using appropriate renderer based on pipeline type
+ * @param {object} pageData - Page data from API
+ * @param {Element} main - Main container element
+ */
+async function renderPage(pageData, main) {
+  if (isFlexiblePipeline(pageData)) {
+    await renderFlexiblePage(pageData, main);
+  } else {
+    await renderGeneratedPage(pageData, main);
+  }
+}
 
 /**
  * Subscribe to realtime updates for a page's images
@@ -211,8 +234,8 @@ async function handleAdaptivePage(main) {
           pageData = await generatePage(params.q);
         }
 
-        // Render the generated content
-        await renderGeneratedPage(pageData, main);
+        // Render the generated content (auto-detects flexible vs legacy pipeline)
+        await renderPage(pageData, main);
 
         // Subscribe to realtime updates for images
         if (pageData?.id && !pageData.images_ready) {
@@ -235,7 +258,7 @@ async function handleAdaptivePage(main) {
         }
 
         if (pageData) {
-          await renderGeneratedPage(pageData, main);
+          await renderPage(pageData, main);
 
           // Subscribe to realtime updates for images if not ready
           if (pageData?.id && !pageData.images_ready) {
@@ -290,7 +313,7 @@ function setupNavigation(main) {
           } else {
             newPage = await generatePage(query);
           }
-          await renderGeneratedPage(newPage, main);
+          await renderPage(newPage, main);
           // Subscribe to realtime updates for images
           if (newPage?.id && !newPage.images_ready) {
             subscribeToPageImages(newPage.id, main);
@@ -307,7 +330,7 @@ function setupNavigation(main) {
             existingPage = await getPage(pageId);
           }
           if (existingPage) {
-            await renderGeneratedPage(existingPage, main);
+            await renderPage(existingPage, main);
             // Subscribe to realtime updates for images
             if (existingPage?.id && !existingPage.images_ready) {
               subscribeToPageImages(existingPage.id, main);
@@ -348,7 +371,7 @@ function setupNavigation(main) {
         } else {
           pageData = await generatePage(q);
         }
-        await renderGeneratedPage(pageData, main);
+        await renderPage(pageData, main);
         // Subscribe to realtime updates for images
         if (pageData?.id && !pageData.images_ready) {
           subscribeToPageImages(pageData.id, main);
@@ -363,7 +386,7 @@ function setupNavigation(main) {
           pageData = await getPage(id);
         }
         if (pageData) {
-          await renderGeneratedPage(pageData, main);
+          await renderPage(pageData, main);
           // Subscribe to realtime updates for images
           if (pageData?.id && !pageData.images_ready) {
             subscribeToPageImages(pageData.id, main);
@@ -420,6 +443,12 @@ async function loadPage() {
       'cta-section',
       'related-topics',
       'homepage-suggestions',
+      // New blocks for flexible pipeline
+      'comparison-table',
+      'comparison-cards',
+      'specs-table',
+      'step-by-step',
+      'text-section',
     ];
     blockCSS.forEach((block) => {
       loadCSS(`${window.hlx.codeBasePath}/blocks/${block}/${block}.css`);

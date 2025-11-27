@@ -1,0 +1,70 @@
+/* Specs Table Block Styles */
+
+.specs-table {
+  padding: 24px 0;
+}
+
+.specs-table-container {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.specs-table-title {
+  background: var(--light-color);
+  margin: 0;
+  padding: 16px 20px;
+  font-size: var(--heading-font-size-s);
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.specs-table-grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.specs-table-grid tr.even {
+  background: white;
+}
+
+.specs-table-grid tr.odd {
+  background: var(--light-color);
+}
+
+.specs-table-grid th,
+.specs-table-grid td {
+  padding: 14px 20px;
+  text-align: left;
+  font-size: var(--body-font-size-s);
+}
+
+.specs-table-grid th {
+  font-weight: 500;
+  color: var(--text-color-light);
+  width: 40%;
+}
+
+.specs-table-grid td {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+/* Hover effect */
+.specs-table-grid tr:hover {
+  background: #e3f2fd;
+}
+
+/* Responsive */
+@media (width < 600px) {
+  .specs-table-grid th,
+  .specs-table-grid td {
+    padding: 12px 16px;
+    font-size: var(--body-font-size-xs);
+  }
+
+  .specs-table-grid th {
+    width: 45%;
+  }
+}

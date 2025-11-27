@@ -28,7 +28,7 @@ export async function retrieveContext(query, openaiApiKey, supabase, options = {
 
     if (!chunks || chunks.length === 0) {
       console.log('RAG: No relevant sources found for query:', query);
-      return { context: '', sourceIds: [] };
+      return { context: '', sourceIds: [], sourceImages: [] };
     }
 
     console.log(`RAG: Found ${chunks.length} relevant sources for query:`, query);
@@ -39,11 +39,31 @@ export async function retrieveContext(query, openaiApiKey, supabase, options = {
     // Deduplicate source IDs
     const sourceIds = [...new Set(chunks.map((c) => c.source_id))];
 
-    return { context, sourceIds };
+    // Fetch source images separately since RPC doesn't return them
+    // This is a workaround until the RPC function is updated
+    let sourceImages = [];
+    try {
+      const sources = await supabase.getSourceImages(sourceIds);
+      for (const source of sources) {
+        const images = source.r2_image_urls || source.source_image_urls || [];
+        if (images.length > 0) {
+          sourceImages.push({
+            sourceId: source.id,
+            title: source.title,
+            images: images.slice(0, 3), // Max 3 images per source
+          });
+        }
+      }
+      console.log(`RAG: Fetched images from ${sourceImages.length} sources`);
+    } catch (imgError) {
+      console.error('RAG: Failed to fetch source images:', imgError);
+    }
+
+    return { context, sourceIds, sourceImages };
   } catch (error) {
     console.error('RAG retrieval error:', error);
     // Return empty context on error to allow generation to proceed
-    return { context: '', sourceIds: [] };
+    return { context: '', sourceIds: [], sourceImages: [] };
   }
 }
 

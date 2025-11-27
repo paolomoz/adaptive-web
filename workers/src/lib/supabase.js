@@ -48,11 +48,17 @@ export function createClient(env) {
   return {
     /**
      * Insert a new generated page
+     * Only inserts columns that exist in the database schema
      */
     async insertPage(pageData) {
+      // Remove undefined fields before inserting
+      const cleanData = Object.fromEntries(
+        Object.entries(pageData).filter(([_, v]) => v !== undefined),
+      );
+
       const result = await request('/generated_pages', {
         method: 'POST',
-        body: JSON.stringify(pageData),
+        body: JSON.stringify(cleanData),
       });
       return result[0];
     },
@@ -177,6 +183,40 @@ export function createClient(env) {
         body: JSON.stringify(chunks),
       });
       return result;
+    },
+
+    /**
+     * Get source images by source IDs
+     * Fetches source_image_urls and r2_image_urls from vitamix_sources
+     * @param {string[]} sourceIds - Array of source UUIDs
+     * @returns {Promise<Array>} Sources with their image URLs
+     */
+    async getSourceImages(sourceIds) {
+      if (!sourceIds || sourceIds.length === 0) return [];
+
+      // Build OR filter for multiple IDs: id=in.(uuid1,uuid2,uuid3)
+      const idsParam = sourceIds.join(',');
+      const result = await request(
+        `/vitamix_sources?id=in.(${idsParam})&select=id,title,source_image_urls,r2_image_urls`,
+      );
+      return result || [];
+    },
+
+    /**
+     * Get all sources with images (for comparison pages)
+     * Returns sources that have non-empty source_image_urls
+     * @returns {Promise<Array>} Sources with their image URLs
+     */
+    async getAllProductImages() {
+      const result = await request(
+        `/vitamix_sources?select=id,title,source_image_urls,r2_image_urls&limit=100`,
+      );
+      // Filter to only those with actual images
+      const sourcesWithImages = (result || []).filter((s) => {
+        const imgs = s.source_image_urls || s.r2_image_urls || [];
+        return Array.isArray(imgs) && imgs.length > 0;
+      });
+      return sourcesWithImages;
     },
   };
 }

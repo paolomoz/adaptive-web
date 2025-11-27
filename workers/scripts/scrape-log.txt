@@ -1,0 +1,75 @@
+2025-11-26T14:50:34.935Z [1/34] https://www.vitamix.com/us/en_us/shop/a3500
+2025-11-26T14:50:39.387Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/a3500) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:50:40.188Z [2/34] https://www.vitamix.com/us/en_us/shop/a2500
+2025-11-26T14:50:43.286Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/a2500) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:50:44.088Z [3/34] https://www.vitamix.com/us/en_us/shop/a2300
+2025-11-26T14:50:44.877Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/a2300) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:50:45.679Z [4/34] https://www.vitamix.com/us/en_us/shop/a3300
+2025-11-26T14:50:50.290Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/a3300) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:50:51.091Z [5/34] https://www.vitamix.com/us/en_us/shop/e310
+2025-11-26T14:50:51.896Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/e310) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:50:52.698Z [6/34] https://www.vitamix.com/us/en_us/shop/e320
+2025-11-26T14:50:56.899Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/e320) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:50:57.702Z [7/34] https://www.vitamix.com/us/en_us/shop/professional-series-750
+2025-11-26T14:51:00.892Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/professional-series-750) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:01.693Z [8/34] https://www.vitamix.com/us/en_us/shop/venturist-v1200
+2025-11-26T14:51:06.887Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/venturist-v1200) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:07.688Z [9/34] https://www.vitamix.com/us/en_us/shop/propel-series-750
+2025-11-26T14:51:08.413Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/propel-series-750) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:09.214Z [10/34] https://www.vitamix.com/us/en_us/shop/certified-reconditioned-standard
+2025-11-26T14:51:09.865Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/certified-reconditioned-standard) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:10.666Z [11/34] https://www.vitamix.com/us/en_us/shop/5-speed-immersion-blender
+2025-11-26T14:51:11.352Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/5-speed-immersion-blender) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:12.154Z [12/34] https://www.vitamix.com/us/en_us/shop/48-ounce-container
+2025-11-26T14:51:12.727Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/48-ounce-container) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:13.529Z [13/34] https://www.vitamix.com/us/en_us/shop/32-ounce-container
+2025-11-26T14:51:14.206Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/32-ounce-container) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:15.008Z [14/34] https://www.vitamix.com/us/en_us/shop/aer-disc-container
+2025-11-26T14:51:19.213Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/aer-disc-container) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:20.014Z [15/34] https://www.vitamix.com/us/en_us/shop/food-processor-attachment
+2025-11-26T14:51:20.725Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/food-processor-attachment) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:21.527Z [16/34] https://www.vitamix.com/us/en_us/shop/under-blade-scraper
+2025-11-26T14:51:22.422Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/under-blade-scraper) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:23.223Z [17/34] https://www.vitamix.com/us/en_us/shop/personal-cup-adapter
+2025-11-26T14:51:23.816Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/personal-cup-adapter) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:24.618Z [18/34] https://www.vitamix.com/us/en_us/shop/20-ounce-travel-cup
+2025-11-26T14:51:25.263Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/20-ounce-travel-cup) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:26.064Z [19/34] https://www.vitamix.com/us/en_us/why-vitamix
+2025-11-26T14:51:27.754Z   -> Why Vitamix? - It's More than a Blender (0 images)
+2025-11-26T14:51:28.556Z [20/34] https://www.vitamix.com/us/en_us/why-vitamix/power
+2025-11-26T14:51:30.072Z   -> Why Vitamix? - It's More than a Blender (0 images)
+2025-11-26T14:51:30.873Z [21/34] https://www.vitamix.com/us/en_us/why-vitamix/precision
+2025-11-26T14:51:31.940Z   -> Why Vitamix? - It's More than a Blender (0 images)
+2025-11-26T14:51:32.742Z [22/34] https://www.vitamix.com/us/en_us/why-vitamix/durability
+2025-11-26T14:51:33.913Z   -> Why Vitamix? - It's More than a Blender (0 images)
+2025-11-26T14:51:34.714Z [23/34] https://www.vitamix.com/us/en_us/why-vitamix/convenience
+2025-11-26T14:51:35.809Z   -> Why Vitamix? - It's More than a Blender (0 images)
+2025-11-26T14:51:36.610Z [24/34] https://www.vitamix.com/us/en_us/support
+2025-11-26T14:51:37.428Z   -> Support - Product Registration, Owner&#39;s Manuals, FAQs (0 images)
+2025-11-26T14:51:38.228Z [25/34] https://www.vitamix.com/us/en_us/shop/blenders
+2025-11-26T14:51:38.486Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/blenders) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:39.287Z [26/34] https://www.vitamix.com/us/en_us/shop/accessories
+2025-11-26T14:51:39.631Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/accessories) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:40.433Z [27/34] https://www.vitamix.com/us/en_us/shop/containers
+2025-11-26T14:51:40.688Z   [ERROR] Supabase error: {"code":"23505","details":"Key (url)=(https://www.vitamix.com/us/en_us/shop/containers) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"vitamix_sources_url_key\""}
+2025-11-26T14:51:41.490Z [28/34] https://www.vitamix.com/us/en_us/shop/stainless-steel-container
+2025-11-26T14:51:43.319Z   [SKIP] HTTP 404
+2025-11-26T14:51:44.121Z [29/34] https://www.vitamix.com/us/en_us/shop/8-ounce-container
+2025-11-26T14:51:46.177Z   [SKIP] HTTP 404
+2025-11-26T14:51:46.979Z [30/34] https://www.vitamix.com/us/en_us/shop/blending-cup-starter-kit
+2025-11-26T14:51:50.270Z   [SKIP] HTTP 404
+2025-11-26T14:51:51.072Z [31/34] https://www.vitamix.com/us/en_us/shop/blending-bowl-starter-kit
+2025-11-26T14:51:55.137Z   -> Blending Cup Bowl Starter Kit (1 images)
+2025-11-26T14:51:55.939Z [32/34] https://www.vitamix.com/us/en_us/shop/self-detect-dry-grains-container
+2025-11-26T14:51:58.327Z   [SKIP] HTTP 404
+2025-11-26T14:51:59.129Z [33/34] https://www.vitamix.com/us/en_us/shop/self-detect-blending-cup
+2025-11-26T14:52:01.387Z   [SKIP] HTTP 404
+2025-11-26T14:52:02.189Z [34/34] https://www.vitamix.com/us/en_us/shop/self-detect-blending-bowl
+2025-11-26T14:52:04.046Z   [SKIP] HTTP 404
+2025-11-26T14:52:04.847Z 
+=== Complete ===
+2025-11-26T14:52:04.848Z Time: 90s
+2025-11-26T14:52:04.848Z Scraped: 7
+2025-11-26T14:52:04.849Z Skipped: 6
+2025-11-26T14:52:04.849Z Errors: 21
+2025-11-26T14:52:04.849Z Images: 1

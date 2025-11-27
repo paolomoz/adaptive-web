@@ -476,6 +476,875 @@ export function renderError(container, message) {
   `;
 }
 
+// =========================================================
+// FLEXIBLE PIPELINE RENDERERS (for content atoms + layout blocks)
+// =========================================================
+
+/**
+ * Get atom by type from content atoms array
+ * @param {Array} atoms - Content atoms
+ * @param {string} type - Atom type to find
+ * @returns {object|null} Found atom or null
+ */
+function getAtom(atoms, type) {
+  return atoms.find((a) => a.type === type) || null;
+}
+
+/**
+ * Get all atoms of a specific type
+ * @param {Array} atoms - Content atoms
+ * @param {string} type - Atom type to find
+ * @returns {Array} Matching atoms
+ */
+function getAtoms(atoms, type) {
+  return atoms.filter((a) => a.type === type);
+}
+
+/**
+ * Render hero-banner block from content atoms
+ */
+function renderHeroBannerBlock(atoms, metadata) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const heading = getAtom(atoms, 'heading');
+  const paragraph = getAtom(atoms, 'paragraph');
+  const imageUrl = metadata?.image_url || '';
+  const hasImage = imageUrl && !imageUrl.includes('placeholder');
+
+  wrapper.innerHTML = `
+    <div class="ai-hero block" data-block-name="ai-hero">
+      <div class="ai-hero-content">
+        <div class="ai-hero-image ${hasImage ? '' : 'skeleton'}">
+          ${hasImage ? `<img src="${imageUrl}" alt="${heading?.text || 'Hero image'}" loading="eager">` : ''}
+        </div>
+        <div class="ai-hero-text">
+          ${heading ? `<h1>${heading.text}</h1>` : ''}
+          ${paragraph ? `<p>${paragraph.text}</p>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  return section;
+}
+
+/**
+ * Render text-section block from content atoms
+ */
+function renderTextSectionBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const paragraphs = getAtoms(atoms, 'paragraph');
+  if (paragraphs.length === 0) return null;
+
+  wrapper.innerHTML = `
+    <div class="text-section block" data-block-name="text-section">
+      <div class="text-section-container">
+        <div class="text-section-content">
+          ${paragraphs.map((p) => `<p>${p.text}</p>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  return section;
+}
+
+/**
+ * Render comparison-table block from content atoms
+ * Creates a horizontal table layout with columns for Model, Series, Price, etc.
+ */
+function renderComparisonTableBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const comparison = getAtom(atoms, 'comparison');
+  if (!comparison?.items?.length) return null;
+
+  const products = comparison.items;
+
+  // Define the column headers we want to display
+  // These map to common spec keys from Claude's comparison atom
+  const columns = [
+    { key: 'model', label: 'Model', type: 'model' },
+    { key: 'series', label: 'Series', type: 'text' },
+    { key: 'price', label: 'Price (MSRP)', type: 'price' },
+    { key: 'container', label: 'Container', type: 'text' },
+    { key: 'warranty', label: 'Warranty', type: 'warranty' },
+    { key: 'presets', label: 'Presets', type: 'text' },
+    { key: 'hp', label: 'HP', type: 'text' },
+    { key: 'smart', label: 'Smart/Detect', type: 'smart' },
+  ];
+
+  // Helper to get spec value with fallbacks for different key formats
+  const getSpecValue = (product, key) => {
+    if (!product.specs) return null;
+    // Try exact key first
+    if (product.specs[key] !== undefined) return product.specs[key];
+    // Try capitalized version
+    const capitalized = key.charAt(0).toUpperCase() + key.slice(1);
+    if (product.specs[capitalized] !== undefined) return product.specs[capitalized];
+    // Try common aliases
+    const aliases = {
+      price: ['Price', 'MSRP', 'price_msrp', 'retail_price'],
+      series: ['Series', 'Product Line', 'line'],
+      container: ['Container', 'Container Size', 'container_size'],
+      warranty: ['Warranty', 'warranty_years', 'Warranty Years'],
+      presets: ['Presets', 'Programs', 'preset_count'],
+      hp: ['HP', 'Horsepower', 'Motor', 'motor_hp'],
+      smart: ['Smart', 'Smart Detect', 'smart_detect', 'Self-Detect'],
+    };
+    for (const alias of aliases[key] || []) {
+      if (product.specs[alias] !== undefined) return product.specs[alias];
+    }
+    return null;
+  };
+
+  // Render warranty badge with color coding
+  const renderWarranty = (value) => {
+    if (!value) return '-';
+    const years = parseInt(value, 10);
+    let className = '';
+    if (years >= 10) className = 'warranty-10';
+    else if (years >= 7) className = 'warranty-7';
+    else if (years >= 5) className = 'warranty-5';
+    return `<span class="comparison-warranty ${className}">${years} Years</span>`;
+  };
+
+  // Render smart/detect indicator with checkmark or X
+  const renderSmart = (value) => {
+    const isYes = value === true || value === 'Yes' || value === 'yes' || value === '✓';
+    const svgCheck = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+    const svgX = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+    return `<span class="comparison-smart ${isYes ? 'smart-yes' : 'smart-no'}">${isYes ? svgCheck : svgX}</span>`;
+  };
+
+  // Render price with formatting
+  const renderPrice = (value) => {
+    if (!value) return '-';
+    // If it's already formatted with $, use it
+    if (typeof value === 'string' && value.includes('$')) {
+      return `<span class="comparison-price">${value}</span>`;
+    }
+    // Format as currency
+    const num = parseFloat(value);
+    if (isNaN(num)) return `<span class="comparison-price">${value}</span>`;
+    return `<span class="comparison-price">$${num.toLocaleString()}</span>`;
+  };
+
+  // Render cell based on column type
+  const renderCell = (product, column) => {
+    const value = column.key === 'model' ? product.name : getSpecValue(product, column.key);
+
+    switch (column.type) {
+      case 'model':
+        return `
+          <div class="comparison-model-cell">
+            <div class="comparison-model-image">
+              ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}">` : ''}
+            </div>
+            <span class="comparison-model-name">${product.name}</span>
+          </div>
+        `;
+      case 'warranty':
+        return renderWarranty(value);
+      case 'smart':
+        return renderSmart(value);
+      case 'price':
+        return renderPrice(value);
+      case 'text':
+      default:
+        return value ? `<span class="comparison-series">${value}</span>` : '-';
+    }
+  };
+
+  // Build table header
+  const headerHtml = columns.map((col) => `<th>${col.label}</th>`).join('');
+
+  // Build table rows
+  const rowsHtml = products.map((product) => `
+    <tr>
+      ${columns.map((col) => `<td>${renderCell(product, col)}</td>`).join('')}
+    </tr>
+  `).join('');
+
+  wrapper.innerHTML = `
+    <div class="comparison-table block" data-block-name="comparison-table">
+      <div class="comparison-table-container">
+        <table class="comparison-table-grid">
+          <thead>
+            <tr>${headerHtml}</tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  return section;
+}
+
+/**
+ * Render comparison-cards block from content atoms
+ * Creates a card grid for model selection with compare overlay
+ */
+function renderComparisonCardsBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const comparison = getAtom(atoms, 'comparison');
+  if (!comparison?.items?.length) return null;
+
+  const products = comparison.items;
+
+  // Get unique series for filter pills
+  const seriesSet = new Set();
+  products.forEach((p) => {
+    const series = p.specs?.series || p.specs?.Series || '';
+    if (series) seriesSet.add(series);
+  });
+  const seriesList = [...seriesSet];
+
+  // SVG icons
+  const starIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+  const wifiIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>';
+  const compareIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>';
+  const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+
+  // Helper to get spec value with flexible key aliases
+  const getSpec = (product, key) => {
+    if (!product.specs) return null;
+    const aliases = {
+      series: ['series', 'Series', 'Product Line', 'product_line'],
+      price: ['price', 'Price', 'MSRP', 'msrp'],
+      container: ['container', 'Container', 'Container Size', 'container_size'],
+      warranty: ['warranty', 'Warranty', 'warranty_years', 'Warranty Years'],
+      hp: ['hp', 'HP', 'Motor', 'motor_hp', 'motor', 'Motor Power'],
+      smart: ['smart', 'Smart', 'Smart Detect', 'Self-Detect', 'self_detect', 'smart_detect'],
+      rating: ['rating', 'Rating', 'stars'],
+      presets: ['presets', 'Presets', 'Programs', 'programs', 'Program Count'],
+      interface: ['interface', 'Interface', 'controls', 'Controls'],
+    };
+    for (const alias of aliases[key] || [key]) {
+      if (product.specs[alias] !== undefined) return product.specs[alias];
+    }
+    // Also check top-level product properties
+    if (product[key] !== undefined) return product[key];
+    return null;
+  };
+
+  // Format price
+  const formatPrice = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string' && value.includes('$')) return value;
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    return `$${num.toLocaleString()}`;
+  };
+
+  // Check if smart
+  const isSmart = (product) => {
+    const val = getSpec(product, 'smart');
+    return val === true || val === 'Yes' || val === 'yes';
+  };
+
+  // Build filter pills HTML
+  const filtersHtml = seriesList.length > 0 ? `
+    <div class="comparison-cards-filters">
+      <button class="filter-pill active" data-filter="all">All</button>
+      ${seriesList.map((s) => `<button class="filter-pill" data-filter="${s}">${s}</button>`).join('')}
+    </div>
+  ` : '';
+
+  // Build cards HTML
+  const cardsHtml = products.map((product, index) => {
+    const series = getSpec(product, 'series') || '';
+    const price = formatPrice(getSpec(product, 'price'));
+    const rating = getSpec(product, 'rating') || '';
+    const smart = isSmart(product);
+
+    return `
+      <div class="comparison-card" data-index="${index}" data-series="${series}">
+        ${smart ? `<div class="card-smart-badge">${wifiIcon} Smart</div>` : ''}
+        ${product.best_value ? '<div class="card-value-badge">Best Value</div>' : ''}
+        <div class="card-image">
+          ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}">` : ''}
+        </div>
+        <div class="card-info">
+          <h3 class="card-name">${product.name}</h3>
+          ${rating ? `<div class="card-rating">${starIcon} ${rating}</div>` : ''}
+        </div>
+        ${series ? `<p class="card-series">${series}</p>` : ''}
+        ${product.description ? `<p class="card-description">${product.description}</p>` : ''}
+        <div class="card-footer">
+          ${price ? `<span class="card-price">${price}</span>` : ''}
+          <label class="card-compare-checkbox">
+            <input type="checkbox" data-index="${index}">
+            Compare
+          </label>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Build compare bar HTML
+  const compareBarHtml = `
+    <div class="compare-bar" id="compare-bar">
+      <div class="compare-bar-left">
+        <span class="compare-bar-label">Comparing:</span>
+        <div class="compare-bar-thumbnails" id="compare-thumbnails"></div>
+        <span class="compare-bar-count" id="compare-count">0 selected</span>
+      </div>
+      <div class="compare-bar-right">
+        <button class="compare-bar-clear" id="compare-clear">Clear</button>
+        <button class="compare-bar-button" id="compare-now">
+          Compare Now ${compareIcon}
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Build compare overlay HTML
+  const overlayHtml = `
+    <div class="compare-overlay" id="compare-overlay">
+      <div class="compare-modal">
+        <div class="compare-modal-header">
+          <h3>Model Comparison</h3>
+          <button class="compare-modal-close" id="compare-close">${closeIcon}</button>
+        </div>
+        <div class="compare-modal-body" id="compare-body"></div>
+      </div>
+    </div>
+  `;
+
+  wrapper.innerHTML = `
+    <div class="comparison-cards block" data-block-name="comparison-cards">
+      <div class="comparison-cards-header">
+        <div>
+          <h2>Current Models</h2>
+          <p>Select models to compare details side-by-side.</p>
+        </div>
+        ${filtersHtml}
+      </div>
+      <div class="comparison-cards-grid">
+        ${cardsHtml}
+      </div>
+    </div>
+    ${compareBarHtml}
+    ${overlayHtml}
+  `;
+
+  // Initialize comparison functionality after DOM is ready
+  setTimeout(() => initComparisonCards(wrapper, products), 0);
+
+  return section;
+}
+
+/**
+ * Initialize comparison cards interactivity
+ */
+function initComparisonCards(container, products) {
+  const cards = container.querySelectorAll('.comparison-card');
+  const checkboxes = container.querySelectorAll('.card-compare-checkbox input');
+  const compareBar = container.querySelector('#compare-bar');
+  const thumbnailsContainer = container.querySelector('#compare-thumbnails');
+  const countEl = container.querySelector('#compare-count');
+  const clearBtn = container.querySelector('#compare-clear');
+  const compareBtn = container.querySelector('#compare-now');
+  const overlay = container.querySelector('#compare-overlay');
+  const closeBtn = container.querySelector('#compare-close');
+  const compareBody = container.querySelector('#compare-body');
+  const filterPills = container.querySelectorAll('.filter-pill');
+
+  let selected = [];
+
+  // Helper to get spec value with flexible key aliases
+  const getSpec = (product, key) => {
+    if (!product.specs) return null;
+    const aliases = {
+      series: ['series', 'Series', 'Product Line', 'product_line'],
+      price: ['price', 'Price', 'MSRP', 'msrp'],
+      container: ['container', 'Container', 'Container Size', 'container_size'],
+      warranty: ['warranty', 'Warranty', 'warranty_years', 'Warranty Years'],
+      hp: ['hp', 'HP', 'Motor', 'motor_hp', 'motor', 'Motor Power'],
+      smart: ['smart', 'Smart', 'Smart Detect', 'Self-Detect', 'self_detect', 'smart_detect'],
+      presets: ['presets', 'Presets', 'Programs', 'programs', 'Program Count'],
+      interface: ['interface', 'Interface', 'controls', 'Controls'],
+    };
+    for (const alias of aliases[key] || [key]) {
+      if (product.specs[alias] !== undefined) return product.specs[alias];
+    }
+    // Also check top-level product properties
+    if (product[key] !== undefined) return product[key];
+    return null;
+  };
+
+  // Format price
+  const formatPrice = (value) => {
+    if (!value) return '-';
+    if (typeof value === 'string' && value.includes('$')) return value;
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    return `$${num.toLocaleString()}`;
+  };
+
+  // Update compare bar
+  const updateCompareBar = () => {
+    if (selected.length > 0) {
+      compareBar.classList.add('visible');
+      countEl.textContent = `${selected.length} selected`;
+
+      // Update thumbnails
+      thumbnailsContainer.innerHTML = selected.map((idx) => {
+        const product = products[idx];
+        return `
+          <div class="compare-bar-thumb">
+            ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}">` : ''}
+          </div>
+        `;
+      }).join('');
+    } else {
+      compareBar.classList.remove('visible');
+    }
+  };
+
+  // Toggle card selection
+  const toggleSelection = (index) => {
+    const idx = selected.indexOf(index);
+    if (idx > -1) {
+      selected.splice(idx, 1);
+      cards[index].classList.remove('selected');
+      checkboxes[index].checked = false;
+    } else if (selected.length < 4) {
+      selected.push(index);
+      cards[index].classList.add('selected');
+      checkboxes[index].checked = true;
+    }
+    updateCompareBar();
+  };
+
+  // Card click handlers
+  cards.forEach((card, index) => {
+    card.addEventListener('click', (e) => {
+      if (!e.target.closest('.card-compare-checkbox')) {
+        toggleSelection(index);
+      }
+    });
+  });
+
+  // Checkbox handlers
+  checkboxes.forEach((checkbox, index) => {
+    checkbox.addEventListener('change', () => {
+      toggleSelection(index);
+    });
+  });
+
+  // Filter pills
+  filterPills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      filterPills.forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+      const filter = pill.dataset.filter;
+
+      cards.forEach((card) => {
+        if (filter === 'all' || card.dataset.series === filter) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  // Clear button
+  clearBtn.addEventListener('click', () => {
+    selected = [];
+    cards.forEach((card) => card.classList.remove('selected'));
+    checkboxes.forEach((cb) => { cb.checked = false; });
+    updateCompareBar();
+  });
+
+  // Compare button - open overlay
+  compareBtn.addEventListener('click', () => {
+    if (selected.length < 2) return;
+
+    const selectedProducts = selected.map((idx) => products[idx]);
+    const count = selectedProducts.length;
+
+    // Build comparison content
+    const productsHtml = selectedProducts.map((product) => `
+      <div class="compare-product">
+        <div class="compare-product-image">
+          ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}">` : ''}
+        </div>
+        <h4 class="compare-product-name">${product.name}</h4>
+        <p class="compare-product-price">${formatPrice(getSpec(product, 'price'))}</p>
+        ${product.url ? `<a href="${product.url}" class="compare-product-cta" target="_blank">View on Vitamix</a>` : ''}
+      </div>
+    `).join('');
+
+    // Define specs to compare
+    const specKeys = [
+      { key: 'series', label: 'Series' },
+      { key: 'container', label: 'Container' },
+      { key: 'warranty', label: 'Warranty' },
+      { key: 'hp', label: 'Motor HP' },
+      { key: 'presets', label: 'Presets' },
+    ];
+
+    const specsHtml = specKeys.map((spec) => `
+      <div class="compare-spec-row count-${count}">
+        ${selectedProducts.map((product) => `
+          <div class="compare-spec-cell">
+            <div class="compare-spec-label">${spec.label}</div>
+            <div class="compare-spec-value">${getSpec(product, spec.key) || '-'}</div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+
+    compareBody.innerHTML = `
+      <div class="compare-products count-${count}">
+        ${productsHtml}
+      </div>
+      <div class="compare-specs">
+        ${specsHtml}
+      </div>
+    `;
+
+    overlay.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+  });
+
+  // Close overlay
+  const closeOverlay = () => {
+    overlay.classList.remove('visible');
+    document.body.style.overflow = '';
+  };
+
+  closeBtn.addEventListener('click', closeOverlay);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeOverlay();
+  });
+}
+
+/**
+ * Render specs-table block from content atoms
+ */
+function renderSpecsTableBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const table = getAtom(atoms, 'table');
+  if (!table?.rows?.length) return null;
+
+  const rowsHtml = table.rows.map((row, idx) => `
+    <tr class="${idx % 2 === 0 ? 'even' : 'odd'}">
+      <th scope="row">${row[0]}</th>
+      <td>${row[1]}</td>
+    </tr>
+  `).join('');
+
+  wrapper.innerHTML = `
+    <div class="specs-table block" data-block-name="specs-table">
+      <div class="specs-table-container">
+        ${table.title ? `<h3 class="specs-table-title">${table.title}</h3>` : ''}
+        <table class="specs-table-grid">
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  return section;
+}
+
+/**
+ * Render step-by-step block from content atoms
+ */
+function renderStepByStepBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const steps = getAtom(atoms, 'steps');
+  if (!steps?.items?.length) return null;
+
+  const stepsHtml = steps.items.map((step) => `
+    <div class="step">
+      <div class="step-number">${step.number}</div>
+      <div class="step-content">
+        <p class="step-instruction">${step.instruction}</p>
+        ${step.tip ? `
+          <div class="step-tip">
+            <span class="tip-icon">\uD83D\uDCA1</span>
+            <span>${step.tip}</span>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  wrapper.innerHTML = `
+    <h2>Instructions</h2>
+    <div class="step-by-step block" data-block-name="step-by-step">
+      <div class="steps-container">
+        ${stepsHtml}
+      </div>
+    </div>
+  `;
+
+  return section;
+}
+
+/**
+ * Render feature-cards block from content atoms
+ */
+function renderFeatureCardsBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const featureSet = getAtom(atoms, 'feature_set');
+  if (!featureSet?.items?.length) return null;
+
+  const cardsHtml = featureSet.items.map((feature) => {
+    const imageUrl = feature.image_url || '';
+    const hasImage = imageUrl && !imageUrl.includes('placeholder');
+
+    return `
+      <div class="feature-card">
+        <div class="feature-card-image ${hasImage ? '' : 'skeleton'}">
+          ${hasImage ? `<img src="${imageUrl}" alt="${feature.title || 'Feature image'}" loading="lazy">` : ''}
+        </div>
+        <div class="feature-card-body">
+          ${feature.title ? `<h3>${feature.title}</h3>` : ''}
+          ${feature.description ? `<p>${feature.description}</p>` : ''}
+          ${feature.cta_text ? `<a href="#" class="button">${feature.cta_text}</a>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrapper.innerHTML = `
+    <h2>Featured</h2>
+    <div class="feature-cards block" data-block-name="feature-cards">
+      <div class="feature-cards-grid">
+        ${cardsHtml}
+      </div>
+    </div>
+  `;
+
+  return section;
+}
+
+/**
+ * Render faq-accordion block from content atoms
+ */
+function renderFaqAccordionBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const faqSet = getAtom(atoms, 'faq_set');
+  if (!faqSet?.items?.length) return null;
+
+  const faqsHtml = faqSet.items.map((faq, index) => `
+    <div class="faq-item">
+      <button class="faq-question" aria-expanded="false" aria-controls="faq-answer-${index}">
+        <span>${faq.question}</span>
+        <svg class="faq-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+      <div class="faq-answer" id="faq-answer-${index}" aria-hidden="true">
+        <div class="faq-answer-content">
+          <p>${faq.answer}</p>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  wrapper.innerHTML = `
+    <h2>Frequently Asked Questions</h2>
+    <div class="faq-accordion block" data-block-name="faq-accordion">
+      <div class="faq-list">
+        ${faqsHtml}
+      </div>
+    </div>
+  `;
+
+  // Add accordion interactivity
+  wrapper.querySelectorAll('.faq-question').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.faq-item');
+      const isOpen = item.classList.contains('open');
+
+      wrapper.querySelectorAll('.faq-item.open').forEach((openItem) => {
+        openItem.classList.remove('open');
+        openItem.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
+        openItem.querySelector('.faq-answer').setAttribute('aria-hidden', 'true');
+      });
+
+      if (!isOpen) {
+        item.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+        item.querySelector('.faq-answer').setAttribute('aria-hidden', 'false');
+      }
+    });
+  });
+
+  return section;
+}
+
+/**
+ * Render cta-section block from content atoms
+ */
+function renderCtaSectionBlock(atoms) {
+  const section = createSection('highlight');
+  const wrapper = section.querySelector('div');
+
+  const cta = getAtom(atoms, 'cta');
+  if (!cta) return null;
+
+  const buttons = cta.buttons || [];
+  const buttonsHtml = buttons.map((btn) => {
+    const btnClass = btn.style === 'secondary' ? 'button secondary' : 'button';
+    return `<a href="#" class="${btnClass}">${btn.text}</a>`;
+  }).join('');
+
+  wrapper.innerHTML = `
+    <div class="cta-section block" data-block-name="cta-section">
+      <div class="cta-container">
+        ${cta.title ? `<h2>${cta.title}</h2>` : ''}
+        ${cta.description ? `<p>${cta.description}</p>` : ''}
+        ${buttonsHtml ? `<div class="cta-buttons">${buttonsHtml}</div>` : ''}
+      </div>
+    </div>
+  `;
+
+  return section;
+}
+
+/**
+ * Render related-topics block from content atoms
+ */
+function renderRelatedTopicsBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const related = getAtom(atoms, 'related');
+  if (!related?.items?.length) return null;
+
+  const topicsHtml = related.items.map((topic) => `
+    <button class="related-topic-card" type="button" data-query="${topic.title}">
+      <div class="related-topic-content">
+        <h3>${topic.title}</h3>
+        ${topic.description ? `<p>${topic.description}</p>` : ''}
+      </div>
+      <span class="related-topic-arrow">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14"></path>
+          <path d="m12 5 7 7-7 7"></path>
+        </svg>
+      </span>
+    </button>
+  `).join('');
+
+  wrapper.innerHTML = `
+    <h3>Continue exploring</h3>
+    <div class="related-topics block" data-block-name="related-topics">
+      <div class="related-topics-grid">
+        ${topicsHtml}
+      </div>
+    </div>
+  `;
+
+  // Add click handlers
+  wrapper.querySelectorAll('.related-topic-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const query = card.dataset.query;
+      import('./router.js').then(({ navigateToQuery }) => {
+        navigateToQuery(query);
+      });
+    });
+  });
+
+  return section;
+}
+
+/**
+ * Render bullet-list block from content atoms
+ */
+function renderBulletListBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const list = getAtom(atoms, 'list');
+  if (!list?.items?.length) return null;
+
+  const listStyle = list.style === 'numbered' ? 'ol' : 'ul';
+  const itemsHtml = list.items.map((item) => `<li>${item}</li>`).join('');
+
+  wrapper.innerHTML = `
+    <div class="bullet-list block" data-block-name="bullet-list">
+      <${listStyle} class="bullet-list-items">
+        ${itemsHtml}
+      </${listStyle}>
+    </div>
+  `;
+
+  return section;
+}
+
+/**
+ * Block renderer map for flexible pipeline
+ */
+const BLOCK_RENDERERS = {
+  'hero-banner': renderHeroBannerBlock,
+  'text-section': renderTextSectionBlock,
+  'comparison-table': renderComparisonTableBlock,
+  'comparison-cards': renderComparisonCardsBlock,
+  'specs-table': renderSpecsTableBlock,
+  'step-by-step': renderStepByStepBlock,
+  'feature-cards': renderFeatureCardsBlock,
+  'faq-accordion': renderFaqAccordionBlock,
+  'cta-section': renderCtaSectionBlock,
+  'related-topics': renderRelatedTopicsBlock,
+  'bullet-list': renderBulletListBlock,
+};
+
+/**
+ * Render a page using the flexible pipeline (content atoms + layout blocks)
+ * @param {object} pageData - Page data from flexible pipeline
+ * @param {Element} container - Container element (main)
+ */
+export async function renderFlexiblePage(pageData, container) {
+  container.innerHTML = '';
+
+  // Render search bar first
+  const searchSection = renderSearchBar();
+  container.appendChild(searchSection);
+
+  const atoms = pageData.content_atoms || [];
+  const blocks = pageData.layout_blocks || [];
+  const metadata = pageData.metadata || {};
+
+  // Render each block in order
+  for (const block of blocks) {
+    const renderer = BLOCK_RENDERERS[block.block_type];
+    if (renderer) {
+      const sectionEl = renderer(atoms, metadata);
+      if (sectionEl) {
+        container.appendChild(sectionEl);
+      }
+    } else {
+      console.warn(`No renderer for block type: ${block.block_type}`);
+    }
+  }
+}
+
 /**
  * Update images in an already-rendered page when they become available
  * Called via realtime subscription when images are generated
@@ -483,26 +1352,56 @@ export function renderError(container, message) {
  * @param {Element} container - Container element (main)
  */
 export function updatePageImages(pageData, container) {
-  // Update hero image
-  if (pageData.hero?.image_url) {
-    const heroImg = container.querySelector('.ai-hero-image');
-    if (heroImg && heroImg.classList.contains('skeleton')) {
-      heroImg.innerHTML = `<img src="${pageData.hero.image_url}" alt="${pageData.hero.title || 'Hero image'}" loading="eager">`;
-      heroImg.classList.remove('skeleton');
-    }
-  }
+  // Detect if this is flexible pipeline (has content_atoms) or legacy (has hero)
+  const isFlexible = pageData.content_atoms && pageData.layout_blocks;
 
-  // Update feature card images
-  if (pageData.features?.length) {
-    const featureCards = container.querySelectorAll('.feature-card');
-    pageData.features.forEach((feature, index) => {
-      if (feature.image_url && featureCards[index]) {
-        const imgContainer = featureCards[index].querySelector('.feature-card-image');
-        if (imgContainer && imgContainer.classList.contains('skeleton')) {
-          imgContainer.innerHTML = `<img src="${feature.image_url}" alt="${feature.title || 'Feature image'}" loading="lazy">`;
-          imgContainer.classList.remove('skeleton');
-        }
+  if (isFlexible) {
+    // Flexible pipeline: update hero from metadata.image_url
+    if (pageData.metadata?.image_url) {
+      const heroImg = container.querySelector('.ai-hero-image');
+      if (heroImg && heroImg.classList.contains('skeleton')) {
+        const heading = pageData.content_atoms.find((a) => a.type === 'heading');
+        heroImg.innerHTML = `<img src="${pageData.metadata.image_url}" alt="${heading?.text || 'Hero image'}" loading="eager">`;
+        heroImg.classList.remove('skeleton');
       }
-    });
+    }
+
+    // Flexible pipeline: update feature images from content_atoms
+    const featureSet = pageData.content_atoms?.find((a) => a.type === 'feature_set');
+    if (featureSet?.items?.length) {
+      const featureCards = container.querySelectorAll('.feature-card');
+      featureSet.items.forEach((feature, index) => {
+        if (feature.image_url && featureCards[index]) {
+          const imgContainer = featureCards[index].querySelector('.feature-card-image');
+          if (imgContainer && imgContainer.classList.contains('skeleton')) {
+            imgContainer.innerHTML = `<img src="${feature.image_url}" alt="${feature.title || 'Feature image'}" loading="lazy">`;
+            imgContainer.classList.remove('skeleton');
+          }
+        }
+      });
+    }
+  } else {
+    // Legacy pipeline: update hero from pageData.hero
+    if (pageData.hero?.image_url) {
+      const heroImg = container.querySelector('.ai-hero-image');
+      if (heroImg && heroImg.classList.contains('skeleton')) {
+        heroImg.innerHTML = `<img src="${pageData.hero.image_url}" alt="${pageData.hero.title || 'Hero image'}" loading="eager">`;
+        heroImg.classList.remove('skeleton');
+      }
+    }
+
+    // Legacy pipeline: update feature card images
+    if (pageData.features?.length) {
+      const featureCards = container.querySelectorAll('.feature-card');
+      pageData.features.forEach((feature, index) => {
+        if (feature.image_url && featureCards[index]) {
+          const imgContainer = featureCards[index].querySelector('.feature-card-image');
+          if (imgContainer && imgContainer.classList.contains('skeleton')) {
+            imgContainer.innerHTML = `<img src="${feature.image_url}" alt="${feature.title || 'Feature image'}" loading="lazy">`;
+            imgContainer.classList.remove('skeleton');
+          }
+        }
+      });
+    }
   }
 }

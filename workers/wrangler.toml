@@ -16,6 +16,7 @@ SUPABASE_URL = "https://jdclzklyiosyfyzoxeho.supabase.co"
 # - GOOGLE_SERVICE_ACCOUNT_KEY (for Imagen 3)
 # - GOOGLE_CLOUD_PROJECT (for Imagen 3)
 # - OPENAI_API_KEY (for RAG embeddings - optional)
+# - GEMINI_API_KEY (for flexible layout pipeline - enables Gemini block selection)
 
 [[r2_buckets]]
 binding = "IMAGES"

@@ -1,0 +1,52 @@
+/* Text Section Block Styles */
+
+.text-section {
+  padding: 32px 0;
+}
+
+.text-section-container {
+  max-width: 800px;
+}
+
+.text-section-title {
+  font-size: var(--heading-font-size-l);
+  margin: 0 0 24px;
+  color: var(--text-color);
+  line-height: 1.3;
+}
+
+.text-section-content {
+  font-size: var(--body-font-size-m);
+  line-height: 1.8;
+  color: var(--text-color);
+}
+
+.text-section-content p {
+  margin: 0 0 20px;
+}
+
+.text-section-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* First paragraph emphasis */
+.text-section-content p:first-child {
+  font-size: var(--body-font-size-l);
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (width < 600px) {
+  .text-section-title {
+    font-size: var(--heading-font-size-m);
+  }
+
+  .text-section-content {
+    font-size: var(--body-font-size-s);
+  }
+
+  .text-section-content p:first-child {
+    font-size: var(--body-font-size-m);
+  }
+}
