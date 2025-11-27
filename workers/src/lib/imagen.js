@@ -202,6 +202,63 @@ async function generateImage(prompt, accessToken, projectId, r2Bucket, pageId, o
 }
 
 /**
+ * Generate a fallback image with a safe, generic prompt
+ * Used when the original prompt is blocked by safety filters
+ */
+async function generateFallbackImage(accessToken, projectId, r2Bucket, pageId, options = {}) {
+  const { type = 'feature', index } = options;
+  const aspectRatio = type === 'hero' ? '16:9' : '4:3';
+
+  // Safe generic prompts that won't trigger content filters
+  const fallbackPrompt = type === 'hero'
+    ? 'Professional food photography: Fresh colorful fruits and vegetables arranged beautifully on a clean white marble counter. Modern Vitamix blender in background. Bright natural lighting, appetizing composition.'
+    : 'Professional food photography: Fresh healthy ingredients including berries, leafy greens, and citrus fruits. Clean modern kitchen setting with soft natural lighting. Appetizing and vibrant colors.';
+
+  console.log(`Generating fallback image for ${type}${index !== undefined ? `-${index}` : ''}`);
+
+  const endpoint = `https://${VERTEX_AI_REGION}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${VERTEX_AI_REGION}/publishers/google/models/imagen-3.0-generate-002:predict`;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      instances: [{ prompt: fallbackPrompt }],
+      parameters: {
+        sampleCount: 1,
+        aspectRatio,
+        personGeneration: 'dont_allow',
+        safetySetting: 'block_medium_and_above',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Fallback image generation failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const prediction = data.predictions?.[0];
+
+  if (!prediction?.bytesBase64Encoded) {
+    throw new Error('No fallback image in response');
+  }
+
+  const url = await uploadToR2(
+    r2Bucket,
+    prediction.bytesBase64Encoded,
+    prediction.mimeType || 'image/png',
+    pageId,
+    type,
+    index,
+  );
+
+  return { type, index, url, fallback: true };
+}
+
+/**
  * Generate multiple images in parallel using Imagen 3
  * @param {Array<{type: string, prompt: string, index?: number}>} prompts - Image prompts
  * @param {string} serviceAccountJson - Service account JSON key
@@ -228,17 +285,42 @@ export async function generateImages(prompts, serviceAccountJson, projectId, r2B
     )),
   );
 
-  // Log any failures
+  // Collect successful results and track failures for retry
+  const successful = [];
+  const failedItems = [];
+
   results.forEach((result, i) => {
-    if (result.status === 'rejected') {
+    if (result.status === 'fulfilled') {
+      successful.push(result.value);
+    } else {
       console.error(`Image ${i} failed:`, result.reason?.message || result.reason);
+      failedItems.push(prompts[i]);
     }
   });
 
-  // Filter successful results
-  const successful = results
-    .filter((result) => result.status === 'fulfilled')
-    .map((result) => result.value);
+  // Retry failed images with fallback prompts
+  if (failedItems.length > 0) {
+    console.log(`Retrying ${failedItems.length} failed images with fallback prompts`);
+
+    const fallbackResults = await Promise.allSettled(
+      failedItems.map((item) => generateFallbackImage(
+        accessToken,
+        projectId,
+        r2Bucket,
+        pageId,
+        { type: item.type, index: item.index },
+      )),
+    );
+
+    fallbackResults.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        successful.push(result.value);
+        console.log(`Fallback succeeded for ${failedItems[i].type}-${failedItems[i].index ?? 'hero'}`);
+      } else {
+        console.error(`Fallback also failed for image ${i}:`, result.reason?.message);
+      }
+    });
+  }
 
   console.log(`Successfully generated ${successful.length}/${prompts.length} images`);
   return successful;

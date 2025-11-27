@@ -82,6 +82,18 @@ const BLOCK_LIBRARY = {
     priority: 65,
     description: 'Bulleted or numbered list for key points',
   },
+  'interactive-guide': {
+    for: ['comparison', 'guide'],
+    required: ['interactive_guide'],
+    priority: 95,
+    description: 'Tab-based product selection guide with top 2-4 product picks organized by user intent (e.g., Best Value, High-Tech, Proven Classic). Each tab shows a detailed product card with specs, pros/cons, and actions. Includes a "Compare All" button that opens a comparison table overlay. Best for helping users choose between a few curated options.',
+  },
+  'vitamix-carousel': {
+    for: ['product', 'guide', 'all'],
+    required: ['vitamix_carousel'],
+    priority: 85,
+    description: 'Horizontal product carousel matching Vitamix website styling. Shows 4-8 featured products with images, titles, subtitles, descriptions, and CTA links. Includes navigation arrows and pagination dots. Best for gift guides, featured products, best sellers.',
+  },
 };
 
 /**
@@ -94,18 +106,19 @@ ${Object.entries(BLOCK_LIBRARY).map(([name, meta]) => `- ${name}: ${meta.descrip
 
 LAYOUT RULES:
 1. Always start with 'hero-banner' for the main heading
-2. Place most important content blocks early in the sequence
-3. End with 'cta-section' followed by 'related-topics'
-4. For recipes: include 'step-by-step' before the CTA
-5. For products: include 'specs-table' to show specifications
-6. IMPORTANT - When a 'table' atom is present, ALWAYS include either 'comparison-table' or 'specs-table' to render it. Tables are explicitly requested content.
-7. For comparisons: prefer 'comparison-cards' for browsing/selecting products, but use 'comparison-table' when user explicitly asks for a "table" or when a table atom is present
-8. Use 'text-section' when there are multiple descriptive paragraphs
-9. Include 'feature-cards' when feature_set atoms are present
-10. Include 'faq-accordion' when faq_set atoms are present
-11. Maximum 8 blocks per page to maintain focus
-12. For queries like "show all models", "compare blenders", "which vitamix" - use comparison-cards
-13. For queries containing "table", "chart", "specs", "specifications" - MUST include comparison-table or specs-table
+2. **CRITICAL**: If an 'interactive_guide' atom is present, you MUST include the 'interactive-guide' block immediately after hero-banner. This is mandatory - do NOT skip it!
+3. Place most important content blocks early in the sequence
+4. End with 'cta-section' followed by 'related-topics'
+5. For recipes: include 'step-by-step' before the CTA
+6. For products: include 'specs-table' to show specifications
+7. IMPORTANT - When a 'table' atom is present, ALWAYS include either 'comparison-table' or 'specs-table' to render it. Tables are explicitly requested content.
+8. For comparisons: prefer 'comparison-cards' for browsing/selecting products, but use 'comparison-table' when user explicitly asks for a "table" or when a table atom is present
+9. Use 'text-section' when there are multiple descriptive paragraphs
+10. Include 'feature-cards' when feature_set atoms are present
+11. Include 'faq-accordion' when faq_set atoms are present
+12. Maximum 8 blocks per page to maintain focus
+13. For queries like "show all models", "compare blenders" - use comparison-cards
+14. For queries containing "table", "chart", "specs", "specifications" - MUST include comparison-table or specs-table
 
 RESPONSE FORMAT:
 Respond with ONLY valid JSON matching this schema:
@@ -135,7 +148,8 @@ Common mappings:
 - cta.title, cta.description, cta.buttons
 - related.items
 - list.items, list.style
-- metadata.primary_image_prompt, metadata.title, metadata.description`;
+- metadata.primary_image_prompt, metadata.title, metadata.description
+- interactive_guide.title, interactive_guide.subtitle, interactive_guide.picks`;
 
 /**
  * Select optimal block layout for content atoms
@@ -229,6 +243,24 @@ Select blocks that best present this content. Remember to:
 
     console.log(`Gemini selected ${layout.blocks.length} blocks: ${layout.blocks.map((b) => b.block_type).join(', ')}`);
 
+    // Post-process: Ensure interactive-guide block is included if atom exists
+    const hasInteractiveGuideAtom = contentAtoms.some((a) => a.type === 'interactive_guide');
+    const hasInteractiveGuideBlock = layout.blocks.some((b) => b.block_type === 'interactive-guide');
+
+    if (hasInteractiveGuideAtom && !hasInteractiveGuideBlock) {
+      console.log('Adding missing interactive-guide block (atom exists but Gemini did not select it)');
+      // Insert after hero-banner (position 1)
+      const interactiveGuideBlock = {
+        block_type: 'interactive-guide',
+        atom_mappings: {
+          title: 'interactive_guide.title',
+          subtitle: 'interactive_guide.subtitle',
+          picks: 'interactive_guide.picks',
+        },
+      };
+      layout.blocks.splice(1, 0, interactiveGuideBlock);
+    }
+
     return {
       blocks: layout.blocks,
       rationale: layout.layout_rationale || 'Layout selected by Gemini',
@@ -273,6 +305,10 @@ function summarizeAtoms(atoms) {
       summary.push(`- related: ${atom.items?.length || 0} related topics`);
     } else if (type === 'list') {
       summary.push(`- list (${atom.style}): ${atom.items?.length || 0} items`);
+    } else if (type === 'interactive_guide') {
+      summary.push(`- interactive_guide: "${atom.title}" with ${atom.picks?.length || 0} curated product picks (THIS IS IMPORTANT - use interactive-guide block!)`);
+    } else if (type === 'vitamix_carousel') {
+      summary.push(`- vitamix_carousel: "${atom.title}" with ${atom.items?.length || 0} featured products (use vitamix-carousel block!)`);
     }
   }
 
@@ -333,6 +369,29 @@ export function getFallbackLayout(contentType, atoms) {
     blocks.push({
       block_type: 'step-by-step',
       atom_mappings: { items: 'steps.items' },
+    });
+  }
+
+  // Interactive guide for personalized recommendations (high priority)
+  if (atomTypes.has('interactive_guide')) {
+    blocks.push({
+      block_type: 'interactive-guide',
+      atom_mappings: {
+        title: 'interactive_guide.title',
+        subtitle: 'interactive_guide.subtitle',
+        picks: 'interactive_guide.picks',
+      },
+    });
+  }
+
+  // Vitamix carousel for featured products
+  if (atomTypes.has('vitamix_carousel')) {
+    blocks.push({
+      block_type: 'vitamix-carousel',
+      atom_mappings: {
+        title: 'vitamix_carousel.title',
+        items: 'vitamix_carousel.items',
+      },
     });
   }
 

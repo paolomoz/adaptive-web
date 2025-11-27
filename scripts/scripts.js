@@ -218,10 +218,14 @@ async function handleAdaptivePage(main) {
   const params = getUrlParams();
   const demoMode = isDemoMode();
 
+  // Log current state for debugging intermittent issues
+  console.log('[AdaptiveWeb] handleAdaptivePage:', { mode, params, demoMode });
+
   try {
     switch (mode) {
       case 'generate': {
-        // Show loading state
+        // Show loading state immediately
+        console.log('[AdaptiveWeb] Starting page generation for query:', params.q);
         renderLoading(main);
 
         // Generate new page (use mock data in demo mode)
@@ -273,11 +277,13 @@ async function handleAdaptivePage(main) {
       case 'homepage':
       default: {
         // Load suggested topics and render homepage
+        console.log('[AdaptiveWeb] Rendering homepage (mode:', mode, ')');
         let topics = [];
         if (!demoMode) {
           try {
             topics = await getSuggestedTopics();
           } catch (e) {
+            console.warn('[AdaptiveWeb] Failed to load suggested topics:', e);
             // Use defaults from homepage-suggestions block
           }
         }
@@ -286,7 +292,12 @@ async function handleAdaptivePage(main) {
       }
     }
   } catch (error) {
-    console.error('Adaptive page error:', error);
+    console.error('[AdaptiveWeb] Page error:', error);
+    // Re-check params to see if we should have handled a query
+    const currentParams = getUrlParams();
+    if (currentParams.q || currentParams.id) {
+      console.error('[AdaptiveWeb] Error occurred while handling query/id:', currentParams);
+    }
     renderError(main, error.message || 'Something went wrong');
   }
 }
@@ -412,8 +423,17 @@ function setupNavigation(main) {
 async function loadPage() {
   let main = document.querySelector('main');
 
+  const configured = isConfigured();
+  const adaptiveApp = isAdaptiveApp();
+  console.log('[AdaptiveWeb] loadPage:', {
+    configured,
+    adaptiveApp,
+    search: window.location.search,
+    pathname: window.location.pathname,
+  });
+
   // Check if API is configured and we're in adaptive mode
-  if (isConfigured() && isAdaptiveApp()) {
+  if (configured && adaptiveApp) {
     // Ensure main element exists for adaptive mode
     if (!main) {
       main = document.createElement('main');
@@ -449,6 +469,8 @@ async function loadPage() {
       'specs-table',
       'step-by-step',
       'text-section',
+      'interactive-guide',
+      'vitamix-carousel',
     ];
     blockCSS.forEach((block) => {
       loadCSS(`${window.hlx.codeBasePath}/blocks/${block}/${block}.css`);

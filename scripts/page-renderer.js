@@ -1299,6 +1299,439 @@ function renderBulletListBlock(atoms) {
 }
 
 /**
+ * Render interactive-guide block from content atoms
+ * Tab-based product selection with comparison overlay
+ */
+function renderInteractiveGuideBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const guide = getAtom(atoms, 'interactive_guide');
+  if (!guide?.picks?.length) return null;
+
+  const picks = guide.picks;
+  const title = guide.title || 'Find Your Perfect Match';
+  const subtitle = guide.subtitle || 'Select your priority to see our top recommendation';
+
+  // SVG icons
+  const checkIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+  const compareIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>';
+  const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+  const starIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+
+  // Helper to get spec value with flexible key aliases
+  const getSpec = (product, key) => {
+    if (!product.specs) return null;
+    const aliases = {
+      series: ['series', 'Series', 'Product Line', 'product_line'],
+      price: ['price', 'Price', 'MSRP', 'msrp'],
+      container: ['container', 'Container', 'Container Size', 'container_size'],
+      warranty: ['warranty', 'Warranty', 'warranty_years', 'Warranty Years'],
+      hp: ['hp', 'HP', 'Motor', 'motor_hp', 'motor', 'Motor Power'],
+      presets: ['presets', 'Presets', 'Programs', 'programs', 'Program Count'],
+      interface: ['interface', 'Interface', 'controls', 'Controls'],
+    };
+    for (const alias of aliases[key] || [key]) {
+      if (product.specs[alias] !== undefined) return product.specs[alias];
+    }
+    return null;
+  };
+
+  // Format price
+  const formatPrice = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string' && value.includes('$')) return value;
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    return `$${num.toLocaleString()}`;
+  };
+
+  // Build tabs HTML
+  const tabsHtml = picks.map((pick, index) => `
+    <button class="guide-tab ${index === 0 ? 'active' : ''}" data-index="${index}">
+      ${pick.tab_icon ? `<span class="tab-icon">${pick.tab_icon}</span>` : ''}
+      ${pick.tab_label}
+    </button>
+  `).join('');
+
+  // Build product cards HTML
+  const cardsHtml = picks.map((pick, index) => {
+    const product = pick.product;
+    const price = formatPrice(getSpec(product, 'price') || product.price);
+    const series = getSpec(product, 'series') || product.series || '';
+
+    // Build specs grid
+    const specsHtml = Object.entries(product.specs || {}).slice(0, 6).map(([key, value]) => `
+      <div class="guide-spec-item">
+        <div class="guide-spec-label">${key}</div>
+        <div class="guide-spec-value">${value}</div>
+      </div>
+    `).join('');
+
+    // Build pros/cons
+    const prosHtml = (pick.pros || []).map((pro) => `<li>${pro}</li>`).join('');
+    const consHtml = (pick.cons || []).map((con) => `<li>${con}</li>`).join('');
+
+    return `
+      <div class="guide-product-card ${index === 0 ? 'active' : ''}" data-index="${index}">
+        <div class="guide-product-image">
+          ${pick.badge ? `<div class="guide-product-badge ${pick.badge_style || ''}">${pick.badge}</div>` : ''}
+          ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}">` : ''}
+        </div>
+        <div class="guide-product-details">
+          <h3 class="guide-product-name">${product.name}</h3>
+          ${series ? `<p class="guide-product-series">${series}</p>` : ''}
+          ${product.rating ? `
+            <div class="guide-product-rating">
+              ${starIcon}${starIcon}${starIcon}${starIcon}${starIcon}
+              <span>${product.rating}</span>
+            </div>
+          ` : ''}
+          ${price ? `<p class="guide-product-price">${price}</p>` : ''}
+          ${product.description ? `<p class="guide-product-description">${product.description}</p>` : ''}
+
+          ${specsHtml ? `<div class="guide-product-specs">${specsHtml}</div>` : ''}
+
+          ${(prosHtml || consHtml) ? `
+            <div class="guide-pros-cons">
+              ${prosHtml ? `
+                <div class="guide-pros">
+                  <h4>${checkIcon} Why it's a winner</h4>
+                  <ul>${prosHtml}</ul>
+                </div>
+              ` : ''}
+              ${consHtml ? `
+                <div class="guide-cons">
+                  <h4>Things to consider</h4>
+                  <ul>${consHtml}</ul>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+
+          <div class="guide-product-actions">
+            ${product.url ? `<a href="${product.url}" class="button primary" target="_blank">View Official Price</a>` : ''}
+            <button class="button secondary guide-learn-more">Learn More</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Build comparison table for overlay
+  const buildComparisonTable = () => {
+    // Collect all unique spec keys
+    const allSpecs = new Set();
+    picks.forEach((pick) => {
+      Object.keys(pick.product.specs || {}).forEach((key) => allSpecs.add(key));
+    });
+    const specKeys = [...allSpecs];
+
+    // Product header row
+    const productHeaders = picks.map((pick) => {
+      const product = pick.product;
+      const price = formatPrice(getSpec(product, 'price') || product.price);
+      return `
+        <th class="guide-compare-product-header">
+          ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}">` : ''}
+          <div class="product-name">${product.name}</div>
+          ${price ? `<div class="product-price">${price}</div>` : ''}
+        </th>
+      `;
+    }).join('');
+
+    // Spec rows
+    const specRows = specKeys.map((key) => {
+      const cells = picks.map((pick) => {
+        const value = pick.product.specs?.[key];
+        if (value === true || value === 'Yes' || value === 'yes') {
+          return `<td><span class="guide-compare-check">${checkIcon}</span></td>`;
+        }
+        if (value === false || value === 'No' || value === 'no') {
+          return '<td><span class="guide-compare-x">-</span></td>';
+        }
+        return `<td>${value || '-'}</td>`;
+      }).join('');
+      return `<tr><td>${key}</td>${cells}</tr>`;
+    }).join('');
+
+    return `
+      <table class="guide-compare-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            ${productHeaders}
+          </tr>
+        </thead>
+        <tbody>
+          ${specRows}
+        </tbody>
+      </table>
+    `;
+  };
+
+  wrapper.innerHTML = `
+    <div class="interactive-guide block" data-block-name="interactive-guide">
+      <div class="interactive-guide-header">
+        <h2>${title}</h2>
+        <p>${subtitle}</p>
+      </div>
+
+      <div class="guide-tabs">
+        ${tabsHtml}
+      </div>
+
+      <div class="guide-product-container">
+        ${cardsHtml}
+      </div>
+
+      <div class="guide-compare-bar">
+        <button class="guide-compare-all-btn">
+          ${compareIcon}
+          Compare All ${picks.length} Models
+        </button>
+      </div>
+    </div>
+
+    <div class="guide-compare-overlay" id="guide-compare-overlay">
+      <div class="guide-compare-modal">
+        <div class="guide-compare-modal-header">
+          <h3>Compare Top Models</h3>
+          <button class="guide-compare-modal-close" id="guide-compare-close">${closeIcon}</button>
+        </div>
+        <div class="guide-compare-modal-body">
+          ${buildComparisonTable()}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Initialize interactivity after DOM is ready
+  setTimeout(() => initInteractiveGuide(wrapper), 0);
+
+  return section;
+}
+
+/**
+ * Initialize interactive guide interactivity
+ */
+function initInteractiveGuide(container) {
+  const tabs = container.querySelectorAll('.guide-tab');
+  const cards = container.querySelectorAll('.guide-product-card');
+  const compareBtn = container.querySelector('.guide-compare-all-btn');
+  const overlay = container.querySelector('#guide-compare-overlay');
+  const closeBtn = container.querySelector('#guide-compare-close');
+
+  // Tab switching
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const index = tab.dataset.index;
+
+      // Update active tab
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      // Update active card
+      cards.forEach((c) => c.classList.remove('active'));
+      const targetCard = container.querySelector(`.guide-product-card[data-index="${index}"]`);
+      if (targetCard) targetCard.classList.add('active');
+    });
+  });
+
+  // Compare overlay
+  if (compareBtn && overlay) {
+    compareBtn.addEventListener('click', () => {
+      overlay.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+    });
+
+    const closeOverlay = () => {
+      overlay.classList.remove('visible');
+      document.body.style.overflow = '';
+    };
+
+    if (closeBtn) closeBtn.addEventListener('click', closeOverlay);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeOverlay();
+    });
+  }
+
+  // Learn more buttons - navigate to product query
+  container.querySelectorAll('.guide-learn-more').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.guide-product-card');
+      const productName = card.querySelector('.guide-product-name')?.textContent;
+      if (productName) {
+        import('./router.js').then(({ navigateToQuery }) => {
+          navigateToQuery(productName);
+        });
+      }
+    });
+  });
+}
+
+/**
+ * Render vitamix-carousel block from content atoms
+ * Reproduces the Holiday Gift Guide carousel from vitamix.com
+ */
+function renderVitamixCarouselBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const carousel = getAtom(atoms, 'vitamix_carousel');
+  if (!carousel?.items?.length) return null;
+
+  const items = carousel.items;
+  const title = carousel.title || 'Featured Products';
+
+  // SVG icons for navigation
+  const prevIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+  const nextIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  const arrowIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>';
+
+  // Build cards HTML
+  const cardsHtml = items.map((item) => `
+    <div class="vitamix-carousel-card">
+      <div class="vitamix-carousel-card__image">
+        ${item.image_url ? `<img src="${item.image_url}" alt="${item.title || 'Product image'}">` : ''}
+      </div>
+      <div class="vitamix-carousel-card__content">
+        ${item.subtitle ? `<p class="vitamix-carousel-card__subtitle">${item.subtitle}</p>` : ''}
+        ${item.title ? `<h3 class="vitamix-carousel-card__title">${item.title}</h3>` : ''}
+        ${item.description ? `<p class="vitamix-carousel-card__description">${item.description}</p>` : ''}
+        ${item.cta_text ? `
+          <a href="${item.url || '#'}" class="vitamix-carousel-card__link" ${item.url ? 'target="_blank"' : ''}>
+            ${item.cta_text}
+            ${arrowIcon}
+          </a>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  // Calculate number of dots needed (based on items visible)
+  const dotsCount = Math.max(1, items.length - 3); // Show dots for scrollable pages
+  const dotsHtml = Array.from({ length: dotsCount }, (_, i) => `
+    <button class="vitamix-carousel-dot ${i === 0 ? 'active' : ''}" data-index="${i}" aria-label="Go to slide ${i + 1}"></button>
+  `).join('');
+
+  wrapper.innerHTML = `
+    <div class="vitamix-carousel-wrapper">
+      <div class="vitamix-carousel-header">
+        <h2>${title}</h2>
+      </div>
+      <div class="vitamix-carousel-container">
+        <button class="vitamix-carousel-nav vitamix-carousel-nav--prev" aria-label="Previous" disabled>
+          ${prevIcon}
+        </button>
+        <div class="vitamix-carousel-track">
+          ${cardsHtml}
+        </div>
+        <button class="vitamix-carousel-nav vitamix-carousel-nav--next" aria-label="Next">
+          ${nextIcon}
+        </button>
+      </div>
+      <div class="vitamix-carousel-dots">
+        ${dotsHtml}
+      </div>
+    </div>
+  `;
+
+  // Initialize carousel navigation
+  setTimeout(() => initVitamixCarousel(wrapper), 0);
+
+  return section;
+}
+
+/**
+ * Initialize Vitamix carousel navigation
+ */
+function initVitamixCarousel(container) {
+  const track = container.querySelector('.vitamix-carousel-track');
+  const prevBtn = container.querySelector('.vitamix-carousel-nav--prev');
+  const nextBtn = container.querySelector('.vitamix-carousel-nav--next');
+  const dots = container.querySelectorAll('.vitamix-carousel-dot');
+  const cards = container.querySelectorAll('.vitamix-carousel-card');
+
+  if (!track || !prevBtn || !nextBtn || cards.length === 0) return;
+
+  let currentIndex = 0;
+
+  // Get number of visible cards based on viewport
+  const getVisibleCardsCount = () => {
+    if (window.innerWidth < 768) return 1;
+    if (window.innerWidth < 1024) return 3;
+    return 4;
+  };
+
+  // Update navigation state
+  const updateNavigation = () => {
+    const visibleCards = getVisibleCardsCount();
+    const maxIndex = Math.max(0, cards.length - visibleCards);
+
+    prevBtn.disabled = currentIndex === 0;
+    nextBtn.disabled = currentIndex >= maxIndex;
+
+    // Update dots
+    dots.forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentIndex);
+    });
+
+    // Calculate translate based on card width + gap
+    if (cards[0]) {
+      const cardWidth = cards[0].offsetWidth;
+      const gap = 24; // Match CSS gap
+      const translateX = currentIndex * (cardWidth + gap);
+      track.style.transform = `translateX(-${translateX}px)`;
+    }
+  };
+
+  // Navigation handlers
+  prevBtn.addEventListener('click', () => {
+    if (currentIndex > 0) {
+      currentIndex -= 1;
+      updateNavigation();
+    }
+  });
+
+  nextBtn.addEventListener('click', () => {
+    const visibleCards = getVisibleCardsCount();
+    const maxIndex = Math.max(0, cards.length - visibleCards);
+    if (currentIndex < maxIndex) {
+      currentIndex += 1;
+      updateNavigation();
+    }
+  });
+
+  // Dot click handlers
+  dots.forEach((dot, i) => {
+    dot.addEventListener('click', () => {
+      const visibleCards = getVisibleCardsCount();
+      const maxIndex = Math.max(0, cards.length - visibleCards);
+      currentIndex = Math.min(i, maxIndex);
+      updateNavigation();
+    });
+  });
+
+  // Handle resize
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      const visibleCards = getVisibleCardsCount();
+      const maxIndex = Math.max(0, cards.length - visibleCards);
+      if (currentIndex > maxIndex) {
+        currentIndex = maxIndex;
+      }
+      updateNavigation();
+    }, 100);
+  });
+
+  // Initial state
+  updateNavigation();
+}
+
+/**
  * Block renderer map for flexible pipeline
  */
 const BLOCK_RENDERERS = {
@@ -1313,6 +1746,8 @@ const BLOCK_RENDERERS = {
   'cta-section': renderCtaSectionBlock,
   'related-topics': renderRelatedTopicsBlock,
   'bullet-list': renderBulletListBlock,
+  'interactive-guide': renderInteractiveGuideBlock,
+  'vitamix-carousel': renderVitamixCarouselBlock,
 };
 
 /**

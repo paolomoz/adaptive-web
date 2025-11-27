@@ -14,7 +14,10 @@ import { generateEmbedding } from './embeddings.js';
  * @returns {Promise<{context: string, sourceIds: string[]}>}
  */
 export async function retrieveContext(query, openaiApiKey, supabase, options = {}) {
-  const { threshold = 0.7, limit = 5 } = options;
+  // Increase limit for carousel-related queries to get more product context
+  const isCarouselQuery = /gift|holiday|carousel|featured|best sellers?|popular/i.test(query);
+  const defaultLimit = isCarouselQuery ? 10 : 5;
+  const { threshold = 0.65, limit = defaultLimit } = options;
 
   try {
     // Generate embedding for the query
@@ -85,7 +88,7 @@ function formatContextForClaude(chunks) {
     // Include relevant metadata
     if (chunk.metadata) {
       if (chunk.metadata.price) {
-        context += `Price: $${chunk.metadata.price}\n`;
+        context += `Price: ${chunk.metadata.price}\n`;
       }
       if (chunk.metadata.model) {
         context += `Model: ${chunk.metadata.model}\n`;
@@ -93,13 +96,21 @@ function formatContextForClaude(chunks) {
       if (chunk.metadata.series) {
         context += `Series: ${chunk.metadata.series}\n`;
       }
+      // Include image URL for carousel items - IMPORTANT for vitamix_carousel atom
+      if (chunk.metadata.image_url) {
+        context += `Product Image URL: ${chunk.metadata.image_url}\n`;
+      }
+    }
+    // Include product URL from source (outside metadata block since it's on chunk directly)
+    if (chunk.url) {
+      context += `Product Page: ${chunk.url}\n`;
     }
 
     context += `(Relevance: ${(chunk.similarity * 100).toFixed(0)}%)\n\n`;
   });
 
   context += 'IMPORTANT: Prioritize the above reference data for product specs, ';
-  context += 'prices, and features. Ensure generated content aligns with this information.\n';
+  context += 'prices, and features. For vitamix_carousel atoms, use the Product Image URLs provided above for each item\'s image_url field.\n';
 
   return context;
 }
