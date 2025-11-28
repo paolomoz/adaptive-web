@@ -39,8 +39,11 @@ export function renderSearchBar(options = {}) {
         <input type="text" placeholder="${placeholder}" aria-label="Search query">
         <button type="submit" disabled>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="m21 21-4.35-4.35"></path>
+            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
+            <path d="M20 3v4"></path>
+            <path d="M22 5h-4"></path>
+            <path d="M4 17v2"></path>
+            <path d="M5 18H3"></path>
           </svg>
           <span>Explore</span>
         </button>
@@ -416,7 +419,17 @@ export async function renderHomepage(suggestedTopics, container) {
   // Add homepage class for styling
   container.classList.add('homepage');
 
-  // Video background hero section
+  // Default topics if none provided
+  const defaultTopics = [
+    { title: 'Ascent Series Blenders', description: 'Premium smart blending with wireless connectivity', query: 'Ascent Series Blenders' },
+    { title: 'Green Smoothie Recipes', description: 'Nutrient-packed smoothies for energy and wellness', query: 'Green Smoothie Recipes' },
+    { title: 'Hot Soup Recipes', description: 'Create restaurant-quality soups in minutes', query: 'Hot Soup Recipes' },
+    { title: 'Self-Cleaning Your Vitamix', description: 'Clean your blender in 60 seconds', query: 'Self-Cleaning Your Vitamix' },
+  ];
+
+  const displayTopics = suggestedTopics && suggestedTopics.length > 0 ? suggestedTopics : defaultTopics;
+
+  // Video background hero section with search bar and suggestions
   const heroSection = document.createElement('div');
   heroSection.className = 'homepage-hero';
   heroSection.innerHTML = `
@@ -426,14 +439,55 @@ export async function renderHomepage(suggestedTopics, container) {
     <div class="homepage-hero-overlay"></div>
     <div class="homepage-hero-content">
       <h1>Discover Your Perfect Vitamix</h1>
-      <p>Explore blenders, recipes, and blending techniques tailored to your interests. What would you like to make today?</p>
+      <p>Explore blenders, recipes, and blending techniques tailored to your interests.</p>
+      <form class="homepage-search-form">
+        <div class="homepage-search-container">
+          <input type="text" placeholder="What would you like to explore?" aria-label="Search query">
+          <button type="submit">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
+              <path d="M20 3v4"></path>
+              <path d="M22 5h-4"></path>
+              <path d="M4 17v2"></path>
+              <path d="M5 18H3"></path>
+            </svg>
+            <span>Explore</span>
+          </button>
+        </div>
+      </form>
+      <div class="homepage-suggestions">
+        <span class="suggestions-label">Or try:</span>
+        <div class="suggestions-chips">
+          ${displayTopics.map((topic) => `<button class="suggestion-chip" type="button" data-query="${topic.query || topic.title}">${topic.title}</button>`).join('')}
+        </div>
+      </div>
     </div>
   `;
   container.appendChild(heroSection);
 
-  // Render suggestions
-  const suggestionsSection = renderHomepageSuggestions(suggestedTopics);
-  container.appendChild(suggestionsSection);
+  // Add search form handler
+  const searchForm = heroSection.querySelector('.homepage-search-form');
+  const searchInput = heroSection.querySelector('.homepage-search-container input');
+  searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const query = searchInput.value.trim();
+    if (query) {
+      import('./router.js').then(({ navigateToQuery }) => {
+        navigateToQuery(query);
+      });
+    }
+  });
+
+  // Add click handlers for suggestion chips
+  heroSection.querySelectorAll('.suggestion-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const query = chip.dataset.query;
+      import('./router.js').then(({ navigateToQuery }) => {
+        navigateToQuery(query);
+      });
+    });
+  });
+
 }
 
 /**
@@ -1568,167 +1622,6 @@ function initInteractiveGuide(container) {
 }
 
 /**
- * Render vitamix-carousel block from content atoms
- * Reproduces the Holiday Gift Guide carousel from vitamix.com
- */
-function renderVitamixCarouselBlock(atoms) {
-  const section = createSection();
-  const wrapper = section.querySelector('div');
-
-  const carousel = getAtom(atoms, 'vitamix_carousel');
-  if (!carousel?.items?.length) return null;
-
-  const items = carousel.items;
-  const title = carousel.title || 'Featured Products';
-
-  // SVG icons for navigation
-  const prevIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"></polyline></svg>';
-  const nextIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"></polyline></svg>';
-  const arrowIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>';
-
-  // Build cards HTML
-  const cardsHtml = items.map((item) => `
-    <div class="vitamix-carousel-card">
-      <div class="vitamix-carousel-card__image">
-        ${item.image_url ? `<img src="${item.image_url}" alt="${item.title || 'Product image'}">` : ''}
-      </div>
-      <div class="vitamix-carousel-card__content">
-        ${item.subtitle ? `<p class="vitamix-carousel-card__subtitle">${item.subtitle}</p>` : ''}
-        ${item.title ? `<h3 class="vitamix-carousel-card__title">${item.title}</h3>` : ''}
-        ${item.description ? `<p class="vitamix-carousel-card__description">${item.description}</p>` : ''}
-        ${item.cta_text ? `
-          <a href="${item.url || '#'}" class="vitamix-carousel-card__link" ${item.url ? 'target="_blank"' : ''}>
-            ${item.cta_text}
-            ${arrowIcon}
-          </a>
-        ` : ''}
-      </div>
-    </div>
-  `).join('');
-
-  // Calculate number of dots needed (based on items visible)
-  const dotsCount = Math.max(1, items.length - 3); // Show dots for scrollable pages
-  const dotsHtml = Array.from({ length: dotsCount }, (_, i) => `
-    <button class="vitamix-carousel-dot ${i === 0 ? 'active' : ''}" data-index="${i}" aria-label="Go to slide ${i + 1}"></button>
-  `).join('');
-
-  wrapper.innerHTML = `
-    <div class="vitamix-carousel-wrapper">
-      <div class="vitamix-carousel-header">
-        <h2>${title}</h2>
-      </div>
-      <div class="vitamix-carousel-container">
-        <button class="vitamix-carousel-nav vitamix-carousel-nav--prev" aria-label="Previous" disabled>
-          ${prevIcon}
-        </button>
-        <div class="vitamix-carousel-track">
-          ${cardsHtml}
-        </div>
-        <button class="vitamix-carousel-nav vitamix-carousel-nav--next" aria-label="Next">
-          ${nextIcon}
-        </button>
-      </div>
-      <div class="vitamix-carousel-dots">
-        ${dotsHtml}
-      </div>
-    </div>
-  `;
-
-  // Initialize carousel navigation
-  setTimeout(() => initVitamixCarousel(wrapper), 0);
-
-  return section;
-}
-
-/**
- * Initialize Vitamix carousel navigation
- */
-function initVitamixCarousel(container) {
-  const track = container.querySelector('.vitamix-carousel-track');
-  const prevBtn = container.querySelector('.vitamix-carousel-nav--prev');
-  const nextBtn = container.querySelector('.vitamix-carousel-nav--next');
-  const dots = container.querySelectorAll('.vitamix-carousel-dot');
-  const cards = container.querySelectorAll('.vitamix-carousel-card');
-
-  if (!track || !prevBtn || !nextBtn || cards.length === 0) return;
-
-  let currentIndex = 0;
-
-  // Get number of visible cards based on viewport
-  const getVisibleCardsCount = () => {
-    if (window.innerWidth < 768) return 1;
-    if (window.innerWidth < 1024) return 3;
-    return 4;
-  };
-
-  // Update navigation state
-  const updateNavigation = () => {
-    const visibleCards = getVisibleCardsCount();
-    const maxIndex = Math.max(0, cards.length - visibleCards);
-
-    prevBtn.disabled = currentIndex === 0;
-    nextBtn.disabled = currentIndex >= maxIndex;
-
-    // Update dots
-    dots.forEach((dot, i) => {
-      dot.classList.toggle('active', i === currentIndex);
-    });
-
-    // Calculate translate based on card width + gap
-    if (cards[0]) {
-      const cardWidth = cards[0].offsetWidth;
-      const gap = 24; // Match CSS gap
-      const translateX = currentIndex * (cardWidth + gap);
-      track.style.transform = `translateX(-${translateX}px)`;
-    }
-  };
-
-  // Navigation handlers
-  prevBtn.addEventListener('click', () => {
-    if (currentIndex > 0) {
-      currentIndex -= 1;
-      updateNavigation();
-    }
-  });
-
-  nextBtn.addEventListener('click', () => {
-    const visibleCards = getVisibleCardsCount();
-    const maxIndex = Math.max(0, cards.length - visibleCards);
-    if (currentIndex < maxIndex) {
-      currentIndex += 1;
-      updateNavigation();
-    }
-  });
-
-  // Dot click handlers
-  dots.forEach((dot, i) => {
-    dot.addEventListener('click', () => {
-      const visibleCards = getVisibleCardsCount();
-      const maxIndex = Math.max(0, cards.length - visibleCards);
-      currentIndex = Math.min(i, maxIndex);
-      updateNavigation();
-    });
-  });
-
-  // Handle resize
-  let resizeTimeout;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      const visibleCards = getVisibleCardsCount();
-      const maxIndex = Math.max(0, cards.length - visibleCards);
-      if (currentIndex > maxIndex) {
-        currentIndex = maxIndex;
-      }
-      updateNavigation();
-    }, 100);
-  });
-
-  // Initial state
-  updateNavigation();
-}
-
-/**
  * Block renderer map for flexible pipeline
  */
 const BLOCK_RENDERERS = {
@@ -1744,7 +1637,6 @@ const BLOCK_RENDERERS = {
   'related-topics': renderRelatedTopicsBlock,
   'bullet-list': renderBulletListBlock,
   'interactive-guide': renderInteractiveGuideBlock,
-  'vitamix-carousel': renderVitamixCarouselBlock,
 };
 
 /**

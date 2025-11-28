@@ -13,51 +13,6 @@ import { createClient } from './lib/supabase.js';
 import { generateImages as generateImagenImages } from './lib/imagen.js';
 
 /**
- * Holiday Gift Guide carousel product image URL mapping
- * Maps product titles to their official Vitamix product image URLs
- */
-const CAROUSEL_IMAGE_MAP = {
-  'ascent series x5': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/a/s/ascent_x5_brushed_stainless_64oz_lp_front.png',
-  'ascent x5': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/a/s/ascent_x5_brushed_stainless_64oz_lp_front.png',
-  'x5': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/a/s/ascent_x5_brushed_stainless_64oz_lp_front.png',
-  'vitamix 5200': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/5/2/5200_black_64oz_lp_front.png',
-  '5200': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/5/2/5200_black_64oz_lp_front.png',
-  'classic vitamix 5200': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/5/2/5200_black_64oz_lp_front.png',
-  'explorian e310': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/e/3/e310_black_48oz_lp_front.png',
-  'e310': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/e/3/e310_black_48oz_lp_front.png',
-  'ascent x5 smartprep': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/s/m/smartprep_kitchen_system_brushed_stainless_64oz_12cup_fp_lp_front.png',
-  'smartprep': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/s/m/smartprep_kitchen_system_brushed_stainless_64oz_12cup_fp_lp_front.png',
-  'immersion blender': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/i/m/immersion_blender_stainless_lp_front.png',
-  'vitamix immersion blender': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/i/m/immersion_blender_stainless_lp_front.png',
-  'accessories': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/a/c/accessories_collection_lp_front.png',
-  'vitamix accessories': 'https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/a/c/accessories_collection_lp_front.png',
-};
-
-/**
- * Find carousel image URL by product title
- * @param {string} title - Product title from carousel item
- * @returns {string|null} Image URL or null if not found
- */
-function findCarouselImageUrl(title) {
-  if (!title) return null;
-  const normalizedTitle = title.toLowerCase().trim();
-
-  // Direct match
-  if (CAROUSEL_IMAGE_MAP[normalizedTitle]) {
-    return CAROUSEL_IMAGE_MAP[normalizedTitle];
-  }
-
-  // Partial match - check if any key is contained in the title
-  for (const [key, url] of Object.entries(CAROUSEL_IMAGE_MAP)) {
-    if (normalizedTitle.includes(key) || key.includes(normalizedTitle)) {
-      return url;
-    }
-  }
-
-  return null;
-}
-
-/**
  * Extract image prompts from legacy content structure
  */
 function extractImagePrompts(content) {
@@ -269,56 +224,11 @@ function applySourceImagesToFlexiblePageData(pageData, sourceImages) {
           }),
         };
       }
-      // Handle vitamix_carousel atoms - use hardcoded image URL mapping
-      if (atom.type === 'vitamix_carousel' && atom.items) {
-        return {
-          ...atom,
-          items: atom.items.map((item) => {
-            const carouselImage = findCarouselImageUrl(item.title);
-            if (carouselImage) {
-              return { ...item, image_url: carouselImage };
-            }
-            return item;
-          }),
-        };
-      }
       return atom;
     });
   }
 
   modifiedData.images_ready = true;
-  return modifiedData;
-}
-
-/**
- * Apply carousel image URLs to page data using hardcoded mapping
- * This ensures carousel products always have correct Vitamix product images
- * regardless of whether Claude extracted them from RAG context
- * @param {object} pageData - Page data to modify
- * @returns {object} Modified pageData with carousel image URLs
- */
-function applyCarouselImageUrls(pageData) {
-  if (!pageData.content_atoms) return pageData;
-
-  const modifiedData = { ...pageData };
-  modifiedData.content_atoms = modifiedData.content_atoms.map((atom) => {
-    if (atom.type === 'vitamix_carousel' && atom.items) {
-      return {
-        ...atom,
-        items: atom.items.map((item) => {
-          const carouselImage = findCarouselImageUrl(item.title);
-          if (carouselImage) {
-            console.log(`Carousel image mapped: "${item.title}" -> ${carouselImage.slice(0, 60)}...`);
-            return { ...item, image_url: carouselImage };
-          }
-          console.log(`Carousel image NOT FOUND for: "${item.title}"`);
-          return item;
-        }),
-      };
-    }
-    return atom;
-  });
-
   return modifiedData;
 }
 
@@ -572,10 +482,6 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
     rag_enabled: sourceIds.length > 0,
     rag_source_ids: sourceIds.length > 0 ? sourceIds : null,
   };
-
-  // Apply carousel image mapping (uses official Vitamix product images for carousels)
-  pageData = applyCarouselImageUrls(pageData);
-  console.log('Applied carousel image URLs');
 
   // Save to database
   const page = await supabase.insertPage(pageData);

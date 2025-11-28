@@ -88,12 +88,6 @@ const BLOCK_LIBRARY = {
     priority: 95,
     description: 'Tab-based product selection guide with top 2-4 product picks organized by user intent (e.g., Best Value, High-Tech, Proven Classic). Each tab shows a detailed product card with specs, pros/cons, and actions. Includes a "Compare All" button that opens a comparison table overlay. Best for helping users choose between a few curated options.',
   },
-  'vitamix-carousel': {
-    for: ['product', 'guide', 'all'],
-    required: ['vitamix_carousel'],
-    priority: 85,
-    description: 'Horizontal product carousel matching Vitamix website styling. Shows 4-8 featured products with images, titles, subtitles, descriptions, and CTA links. Includes navigation arrows and pagination dots. Best for gift guides, featured products, best sellers.',
-  },
 };
 
 /**
@@ -307,8 +301,6 @@ function summarizeAtoms(atoms) {
       summary.push(`- list (${atom.style}): ${atom.items?.length || 0} items`);
     } else if (type === 'interactive_guide') {
       summary.push(`- interactive_guide: "${atom.title}" with ${atom.picks?.length || 0} curated product picks (THIS IS IMPORTANT - use interactive-guide block!)`);
-    } else if (type === 'vitamix_carousel') {
-      summary.push(`- vitamix_carousel: "${atom.title}" with ${atom.items?.length || 0} featured products (use vitamix-carousel block!)`);
     }
   }
 
@@ -380,17 +372,6 @@ export function getFallbackLayout(contentType, atoms) {
         title: 'interactive_guide.title',
         subtitle: 'interactive_guide.subtitle',
         picks: 'interactive_guide.picks',
-      },
-    });
-  }
-
-  // Vitamix carousel for featured products
-  if (atomTypes.has('vitamix_carousel')) {
-    blocks.push({
-      block_type: 'vitamix-carousel',
-      atom_mappings: {
-        title: 'vitamix_carousel.title',
-        items: 'vitamix_carousel.items',
       },
     });
   }

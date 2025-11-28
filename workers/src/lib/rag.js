@@ -14,9 +14,9 @@ import { generateEmbedding } from './embeddings.js';
  * @returns {Promise<{context: string, sourceIds: string[]}>}
  */
 export async function retrieveContext(query, openaiApiKey, supabase, options = {}) {
-  // Increase limit for carousel-related queries to get more product context
-  const isCarouselQuery = /gift|holiday|carousel|featured|best sellers?|popular/i.test(query);
-  const defaultLimit = isCarouselQuery ? 10 : 5;
+  // Increase limit for product-related queries to get more context
+  const isProductQuery = /gift|holiday|featured|best sellers?|popular/i.test(query);
+  const defaultLimit = isProductQuery ? 10 : 5;
   const { threshold = 0.65, limit = defaultLimit } = options;
 
   try {
@@ -96,7 +96,7 @@ function formatContextForClaude(chunks) {
       if (chunk.metadata.series) {
         context += `Series: ${chunk.metadata.series}\n`;
       }
-      // Include image URL for carousel items - IMPORTANT for vitamix_carousel atom
+      // Include image URL for product items
       if (chunk.metadata.image_url) {
         context += `Product Image URL: ${chunk.metadata.image_url}\n`;
       }
@@ -109,8 +109,7 @@ function formatContextForClaude(chunks) {
     context += `(Relevance: ${(chunk.similarity * 100).toFixed(0)}%)\n\n`;
   });
 
-  context += 'IMPORTANT: Prioritize the above reference data for product specs, ';
-  context += 'prices, and features. For vitamix_carousel atoms, use the Product Image URLs provided above for each item\'s image_url field.\n';
+  context += 'IMPORTANT: Prioritize the above reference data for product specs, prices, and features.\n';
 
   return context;
 }

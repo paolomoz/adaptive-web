@@ -469,7 +469,6 @@ async function loadPage() {
       'step-by-step',
       'text-section',
       'interactive-guide',
-      'vitamix-carousel',
     ];
     blockCSS.forEach((block) => {
       loadCSS(`${window.hlx.codeBasePath}/blocks/${block}/${block}.css`);

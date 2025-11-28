@@ -383,11 +383,12 @@ main .section.dark a {
 /* Homepage Hero with Video Background */
 .homepage-hero {
   position: relative;
-  height: 1000px;
+  height: 800px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 0;
 }
 
 .homepage-hero-video {
@@ -415,8 +416,11 @@ main .section.dark a {
   z-index: 2;
   text-align: center;
   color: white;
-  padding: 0 24px;
-  max-width: 800px;
+  padding: 40px;
+  max-width: 900px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
 }
 
 .homepage-hero-content h1 {
@@ -430,8 +434,149 @@ main .section.dark a {
   font-size: var(--body-font-size-m);
   color: rgba(255, 255, 255, 0.9);
   max-width: 600px;
-  margin: 0 auto;
+  margin: 0 auto 32px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Homepage Search Form */
+.homepage-search-form {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto 24px;
+}
+
+.homepage-search-container {
+  display: flex;
+  align-items: stretch;
+  background: transparent;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.homepage-search-container input {
+  flex: 1;
+  border: 1px solid var(--color-charcoal);
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  outline: none;
+  padding: 16px 20px;
+  font-size: var(--body-font-size-s);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  min-width: 0;
+}
+
+.homepage-search-container input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.homepage-search-container button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 24px;
+  border: 1px solid var(--color-charcoal);
+  border-left: none;
+  border-radius: 0 4px 4px 0;
+  background-color: var(--color-charcoal);
+  color: white;
+  font-size: var(--body-font-size-s);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.homepage-search-container button:hover {
+  background-color: var(--color-gray);
+}
+
+/* Homepage Suggestions as Chips */
+.homepage-hero-content .homepage-suggestions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 0;
+}
+
+.homepage-hero-content .suggestions-label {
+  font-size: var(--body-font-size-xs);
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.homepage-hero-content .suggestions-chips {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 3px 10px;
+  justify-content: center;
+}
+
+.homepage-hero-content .suggestion-chip {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 8px 16px;
+  margin: 4px 0;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+
+.homepage-hero-content .suggestion-chip:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Mobile adjustments for homepage hero */
+@media (width < 600px) {
+  .homepage-hero-content {
+    padding: 24px;
+    margin: 16px;
+  }
+
+  .homepage-hero-content h1 {
+    font-size: var(--heading-font-size-l);
+    margin-bottom: 16px;
+  }
+
+  .homepage-hero-content p {
+    font-size: var(--body-font-size-s);
+    margin-bottom: 24px;
+  }
+
+  .homepage-search-container input {
+    padding: 12px 16px;
+    font-size: var(--body-font-size-s);
+  }
+
+  .homepage-search-container button {
+    padding: 12px 16px;
+  }
+
+  .homepage-search-container button span {
+    display: none;
+  }
+
+  .homepage-hero-content .homepage-suggestions {
+    gap: 10px;
+  }
+
+  .homepage-hero-content .suggestions-chips {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .homepage-hero-content .suggestion-chip {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
 }
 
 /* Loading State */

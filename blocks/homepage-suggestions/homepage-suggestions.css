@@ -81,3 +81,54 @@
     font-size: var(--body-font-size-xs);
   }
 }
+
+/* Suggestions inside hero overlay */
+.homepage-hero-content .homepage-suggestions {
+  margin-top: 40px;
+  width: 100%;
+  max-width: 1000px;
+}
+
+.homepage-hero-content .suggestions-title {
+  color: white;
+  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 16px;
+}
+
+.homepage-hero-content .suggestions-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.homepage-hero-content .suggestion-card {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.homepage-hero-content .suggestion-card:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
+}
+
+.homepage-hero-content .suggestion-card h3 {
+  color: white;
+  font-size: 12px;
+}
+
+.homepage-hero-content .suggestion-card p {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+}
+
+.homepage-hero-content .suggestion-arrow {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.homepage-hero-content .suggestion-card:hover .suggestion-arrow {
+  color: white;
+}

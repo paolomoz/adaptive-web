@@ -147,18 +147,6 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
     { "type": "paragraph", "text": "Additional paragraph" },
     { "type": "list", "style": "bullet", "items": ["Item 1", "Item 2", "Item 3"] },
 
-    // For featured product carousel (Vitamix gift guide style):
-    // IMPORTANT: image_url MUST be the full URL from RAG context starting with https://www.vitamix.com/media/catalog/product/
-    { "type": "vitamix_carousel", "title": "Holiday Gift Guide", "items": [
-      {
-        "title": "Ascent Series X5",
-        "subtitle": "Smart Blending Technology",
-        "description": "Our most advanced blender with touchscreen controls",
-        "image_url": "https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/a/s/ascent_x5_brushed_stainless_64oz_lp_front.png",
-        "url": "https://www.vitamix.com/ca/en_us/shop/ascent-x5",
-        "cta_text": "Shop Now"
-      }
-    ]}
   ]
 }
 
@@ -191,38 +179,7 @@ CRITICAL - INTERACTIVE GUIDE ATOM:
   - tab_icon options: "dollar", "wifi", "star", "heart"
   - badge_style options: "best-value", "chef-favorite", "smart"
 - Use RAG context data when available for accurate specs/prices
-- Image prompts should be detailed and appetizing for food, or professional for products
-
-VITAMIX CAROUSEL ATOM:
-- Include a vitamix_carousel atom when you want to showcase multiple featured products in a visually appealing way
-- Use for queries like "gift ideas", "holiday gift guide", "best sellers", "featured products", "popular blenders"
-- Each carousel item should have: title, subtitle (category/tagline), description, image_url, url, cta_text
-- Ideal for 4-8 products in a horizontal scrolling carousel
-
-CRITICAL FOR CAROUSEL IMAGE URLS - READ CAREFULLY:
-When the RAG context contains a gift guide or carousel content, it will include lines like:
-"Image URL: https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/a/s/ascent_x5_brushed_stainless_64oz_lp_front.png"
-
-YOU MUST:
-1. Find each "Image URL: https://..." line in the RAG context
-2. Copy the EXACT URL (starting with https://www.vitamix.com/media/catalog/product/) for each product
-3. Use this exact URL as the image_url value in your carousel item
-
-EXAMPLE: If RAG context contains:
-"1. Ascent Series X5 - Smart Blending Technology - $699.95
-   Image URL: https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/a/s/ascent_x5_brushed_stainless_64oz_lp_front.png"
-
-Then your carousel item MUST be:
-{
-  "title": "Ascent Series X5",
-  "image_url": "https://www.vitamix.com/media/catalog/product/cache/9c0f658fdd4e8b42d5ea08c8da7cca3e/a/s/ascent_x5_brushed_stainless_64oz_lp_front.png"
-}
-
-DO NOT:
-- Invent relative paths like "/ascent-x5-hero.jpg"
-- Use the gift guide page URL as an image URL
-- Make up image filenames
-- Leave image_url empty if the URL is in the RAG context`;
+- Image prompts should be detailed and appetizing for food, or professional for products`;
 
 /**
  * Legacy system prompt for backward compatibility
