@@ -1,17 +1,21 @@
-/* CTA Section Block Styles */
+/* CTA Section Block Styles - Full Width */
 
 .cta-section {
   background-color: var(--color-secondary);
   color: white;
   padding: 60px 24px;
-  margin: 0 -24px;
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
   text-align: center;
 }
 
 @media (width >= 900px) {
   .cta-section {
     padding: 80px 32px;
-    margin: 0 -32px;
   }
 }
 

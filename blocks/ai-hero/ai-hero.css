@@ -1,16 +1,19 @@
-/* AI Hero Block Styles */
+/* AI Hero Block Styles - Full Width */
 
 .ai-hero {
   position: relative;
-  min-height: 400px;
-  margin: 0 -24px;
+  min-height: 450px;
+  width: 100vw;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
   overflow: hidden;
 }
 
 @media (width >= 900px) {
   .ai-hero {
-    min-height: 500px;
-    margin: 0 -32px;
+    min-height: 550px;
   }
 }
 
