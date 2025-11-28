@@ -48,8 +48,11 @@
 
 .cta-section .button {
   padding: 14px 28px;
-  font-size: var(--body-font-size-s);
+  font-size: 14px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
 }
 
 .cta-section .button:not(.secondary) {

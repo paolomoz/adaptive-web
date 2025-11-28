@@ -1,9 +1,10 @@
-/* header and nav layout */
+/* header and nav layout - Vitamix dark style */
 header .nav-wrapper {
-  background-color: var(--background-color);
+  background-color: var(--color-secondary);
   width: 100%;
   z-index: 2;
   position: fixed;
+  color: white;
 }
 
 header nav {
@@ -68,7 +69,7 @@ header nav .nav-hamburger button {
   border: 0;
   border-radius: 0;
   padding: 0;
-  background-color: var(--background-color);
+  background-color: transparent;
   color: inherit;
   overflow: initial;
   text-overflow: initial;
@@ -166,11 +167,13 @@ header nav[aria-expanded='true'] .nav-sections {
 header nav .nav-sections ul {
   list-style: none;
   padding-left: 0;
-  font-size: var(--body-font-size-s);
+  font-size: 13px;
 }
 
 header nav .nav-sections ul > li {
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 header nav .nav-sections ul > li > ul {
@@ -241,8 +244,11 @@ header nav .nav-sections ul > li > ul > li {
     width: 200px;
     top: 150%;
     padding: 16px;
-    background-color: var(--light-color);
+    background-color: white;
+    color: var(--text-color);
     white-space: initial;
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   }
 
   header nav .nav-sections .default-content-wrapper > ul > li > ul::before {
@@ -254,7 +260,7 @@ header nav .nav-sections ul > li > ul > li {
     height: 0;
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
-    border-bottom: 8px solid var(--light-color);
+    border-bottom: 8px solid white;
   }
 
   header nav .nav-sections .default-content-wrapper > ul > li > ul > li {

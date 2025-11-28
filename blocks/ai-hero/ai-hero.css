@@ -28,7 +28,7 @@
 }
 
 .ai-hero-image.skeleton {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--color-secondary) 0%, #333 100%);
   animation: heroShimmer 2s infinite;
 }
 
@@ -98,8 +98,11 @@
   color: white;
   border: none;
   padding: 14px 28px;
-  font-size: var(--body-font-size-s);
+  font-size: 14px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
 }
 
 .ai-hero-text .button:hover {

@@ -11,71 +11,72 @@
  */
 
 :root {
-  /* Vitamix brand colors */
-  --color-primary: #c41230;
-  --color-primary-dark: #9e0f27;
-  --color-primary-light: #e8334f;
+  /* Vitamix brand colors - aligned with vitamix.com */
+  --color-primary: #c00310;
+  --color-primary-dark: #9a0210;
+  --color-primary-light: #e31c25;
   --color-secondary: #1a1a1a;
   --color-accent: #f5f5f5;
 
   /* colors */
-  --background-color: white;
+  --background-color: #ffffff;
   --light-color: #f8f8f8;
-  --dark-color: #505050;
-  --text-color: #333333;
+  --dark-color: #333333;
+  --text-color: #1a1a1a;
   --text-color-light: #666666;
   --link-color: var(--color-primary);
   --link-hover-color: var(--color-primary-dark);
-  --border-color: #e0e0e0;
+  --border-color: #e5e5e5;
 
-  /* fonts */
-  --body-font-family: roboto, roboto-fallback, sans-serif;
-  --heading-font-family: roboto-condensed, roboto-condensed-fallback, sans-serif;
+  /* fonts - Vitamix typography via Adobe Fonts (Typekit) */
+  --body-font-family: 'gotham-narrow', gotham-narrow-fallback, helvetica, sans-serif;
+  --heading-font-family: 'sentinel', sentinel-fallback, georgia, serif;
+  --nav-font-family: 'gotham-narrow', gotham-narrow-fallback, helvetica, sans-serif;
 
   /* body sizes */
-  --body-font-size-m: 22px;
-  --body-font-size-s: 19px;
-  --body-font-size-xs: 17px;
+  --body-font-size-m: 18px;
+  --body-font-size-s: 16px;
+  --body-font-size-xs: 14px;
 
-  /* heading sizes */
-  --heading-font-size-xxl: 55px;
-  --heading-font-size-xl: 44px;
-  --heading-font-size-l: 34px;
-  --heading-font-size-m: 27px;
-  --heading-font-size-s: 24px;
-  --heading-font-size-xs: 22px;
+  /* heading sizes - tighter for Vitamix style */
+  --heading-font-size-xxl: 48px;
+  --heading-font-size-xl: 36px;
+  --heading-font-size-l: 28px;
+  --heading-font-size-m: 22px;
+  --heading-font-size-s: 18px;
+  --heading-font-size-xs: 16px;
 
   /* nav height */
   --nav-height: 64px;
 }
 
-/* fallback fonts */
+/* fallback fonts for Vitamix typography */
 @font-face {
-  font-family: roboto-condensed-fallback;
-  size-adjust: 88.82%;
-  src: local('Arial');
+  font-family: sentinel-fallback;
+  size-adjust: 93.86%;
+  src: local('Georgia');
 }
 
 @font-face {
-  font-family: roboto-fallback;
-  size-adjust: 99.529%;
-  src: local('Arial');
+  font-family: gotham-narrow-fallback;
+  size-adjust: 98.395%;
+  src: local('Helvetica');
 }
 
 @media (width >= 900px) {
   :root {
-    /* body sizes */
+    /* body sizes - consistent across breakpoints for Vitamix */
     --body-font-size-m: 18px;
     --body-font-size-s: 16px;
     --body-font-size-xs: 14px;
 
     /* heading sizes */
-    --heading-font-size-xxl: 45px;
+    --heading-font-size-xxl: 48px;
     --heading-font-size-xl: 36px;
     --heading-font-size-l: 28px;
     --heading-font-size-m: 22px;
-    --heading-font-size-s: 20px;
-    --heading-font-size-xs: 18px;
+    --heading-font-size-s: 18px;
+    --heading-font-size-xs: 16px;
   }
 }
 
@@ -116,8 +117,9 @@ h6 {
   margin-top: 0.8em;
   margin-bottom: 0.25em;
   font-family: var(--heading-font-family);
-  font-weight: 600;
-  line-height: 1.25;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   scroll-margin: 40px;
 }
 
@@ -174,7 +176,7 @@ a:hover {
   text-decoration: underline;
 }
 
-/* buttons */
+/* buttons - Vitamix style with slight rounding */
 a.button:any-link,
 button {
   box-sizing: border-box;
@@ -182,20 +184,24 @@ button {
   max-width: 100%;
   margin: 12px 0;
   border: 2px solid transparent;
-  border-radius: 2.4em;
-  padding: 0.5em 1.2em;
+  border-radius: 4px;
+  padding: 14px 28px;
   font-family: var(--body-font-family);
   font-style: normal;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 14px;
   line-height: 1.25;
   text-align: center;
   text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   background-color: var(--link-color);
   color: var(--background-color);
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: background-color 0.2s ease;
 }
 
 a.button:hover,
@@ -209,14 +215,21 @@ button:focus {
 button:disabled,
 button:disabled:hover {
   background-color: var(--light-color);
+  color: var(--text-color-light);
   cursor: unset;
 }
 
 a.button.secondary,
 button.secondary {
-  background-color: unset;
-  border: 2px solid currentcolor;
-  color: var(--text-color);
+  background-color: transparent;
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+}
+
+a.button.secondary:hover,
+button.secondary:hover {
+  background-color: var(--color-primary);
+  color: white;
 }
 
 main img {
