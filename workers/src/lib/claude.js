@@ -147,16 +147,116 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
     { "type": "paragraph", "text": "Additional paragraph" },
     { "type": "list", "style": "bullet", "items": ["Item 1", "Item 2", "Item 3"] },
 
+    // SINGLE PRODUCT DETAIL PAGE (content_type: "single_product"):
+    // Use this for specific product queries like "vitamix a3500", "tell me about the e310"
+    { "type": "product_detail",
+      "name": "Vitamix A3500",
+      "series": "Ascent Series",
+      "tagline": "The ultimate blending machine with touchscreen control",
+      "price": "$629",
+      "url": "https://www.vitamix.com/us/en_us/shop/a3500",
+      "image_url": "URL from RAG or image_prompt for generation",
+      "rating": 4.8,
+      "review_count": 1250,
+      "warranty": "10-Year Full Warranty",
+      "highlights": [
+        "Touchscreen controls with 5 program settings",
+        "Self-Detect technology for container recognition",
+        "Variable speed + pulse control"
+      ],
+      "description": "Detailed description of the product...",
+      "features": [
+        { "title": "Touchscreen Interface", "description": "..." },
+        { "title": "Self-Detect Technology", "description": "..." }
+      ],
+      "specs": {
+        "motor": "2.2 HP",
+        "container": "64 oz Low-Profile",
+        "dimensions": "17.5 x 11 x 9 inches",
+        "weight": "12.5 lbs",
+        "cord_length": "4 ft",
+        "programs": "5 (Smoothies, Hot Soups, Dips, Frozen Desserts, Self-Cleaning)",
+        "warranty": "10 Years"
+      },
+      "whats_included": ["Motor Base", "64-oz Container", "Tamper", "Getting Started Guide"],
+      "related_products": [
+        { "name": "Vitamix A2500", "price": "$549", "image_url": "..." }
+      ]
+    },
+
+    // SINGLE RECIPE DETAIL PAGE (content_type: "single_recipe"):
+    // Use this for specific recipe queries like "mango smoothie recipe", "how to make tomato soup"
+    { "type": "recipe_detail",
+      "name": "Tropical Mango Smoothie",
+      "description": "A refreshing tropical blend perfect for hot summer days",
+      "image_url": "URL or image_prompt for AI generation",
+      "prep_time": "5 minutes",
+      "total_time": "5 minutes",
+      "servings": "2 servings",
+      "difficulty": "Easy",
+      "ingredients": [
+        { "amount": "1 cup", "name": "frozen mango chunks" },
+        { "amount": "1/2 cup", "name": "pineapple pieces" },
+        { "amount": "1 cup", "name": "coconut milk" },
+        { "amount": "1 tbsp", "name": "honey (optional)" }
+      ],
+      "steps": [
+        { "instruction": "Add all ingredients to your Vitamix container in the order listed.", "tip": "Liquid first helps create a smoother blend" },
+        { "instruction": "Secure the lid and select Variable 1.", "tip": null },
+        { "instruction": "Turn the machine on and quickly increase to Variable 10.", "tip": null },
+        { "instruction": "Blend for 45-60 seconds until smooth.", "tip": "Use the tamper if needed to press ingredients toward the blades" },
+        { "instruction": "Serve immediately.", "tip": null }
+      ],
+      "chef_notes": "For a thicker smoothie, add more frozen fruit. For extra protein, add a scoop of your favorite protein powder.",
+      "nutrition": {
+        "serving_size": "1 cup",
+        "calories": "180",
+        "protein": "2g",
+        "carbs": "32g",
+        "fat": "6g",
+        "fiber": "3g",
+        "sugar": "25g"
+      },
+      "equipment": ["Vitamix Blender", "64-oz Container"],
+      "tags": ["Smoothie", "Tropical", "Vegan", "Dairy-Free", "Quick"],
+      "related_recipes": [
+        { "name": "Pineapple Paradise Smoothie", "description": "Another tropical favorite", "query": "pineapple smoothie recipe", "image_prompt": "A vibrant pineapple smoothie in a glass with pineapple chunks, bright yellow color, tropical setting" },
+        { "name": "Green Mango Smoothie", "description": "Add some greens for extra nutrition", "query": "green mango smoothie", "image_prompt": "A green mango smoothie in a glass with spinach leaves and mango slices, vibrant green color" }
+      ]
+    }
   ]
 }
 
 GUIDELINES:
 - Determine content_type based on query intent:
-  - "recipe" for smoothie/food queries
+  - "single_product" for SPECIFIC product queries like "vitamix a3500", "tell me about the e310", "a2500 specs"
+    * MUST include a product_detail atom with comprehensive information
+    * Pull data from RAG context when available
+  - "single_recipe" for SPECIFIC recipe queries like "mango smoothie recipe", "how to make tomato soup"
+    * MUST include a recipe_detail atom with ingredients, steps, nutrition
+    * Can augment RAG data with generated content
+  - "recipe" for GENERIC food/recipe category queries like "smoothies", "breakfast ideas", "healthy recipes"
   - "comparison" for "show all", "compare models", "vs", explicit product comparisons
-  - "product" for single product queries
+  - "product" for general product category queries (not specific models)
   - "guide" for how-to queries OR personalized recommendation queries like "which vitamix should I buy", "help me choose", "recommend", "best for me", "what should I get"
-- Always include: heading, intro paragraph, faq_set (3), feature_set (3), related (4), cta
+- For single_product: include ONLY product_detail atom (it's comprehensive)
+- For single_recipe: include ONLY recipe_detail atom (it's comprehensive)
+- For other types: include heading, intro paragraph, faq_set (3), feature_set (3), related (4), cta
+
+CRITICAL - RECIPE QUERY HANDLING:
+- GENERIC RECIPE QUERIES (e.g., "smoothies", "healthy recipes", "breakfast ideas", "soups"):
+  - Do NOT include step-by-step instructions for a single recipe
+  - Instead, use feature_set to showcase 3-4 specific recipe OPTIONS the user can choose from
+  - Each feature should be a distinct recipe with title, brief description, and enticing image_prompt
+  - Title should be a category/collection page (e.g., "Delicious Smoothie Recipes", "Healthy Breakfast Ideas")
+  - Include related topics that link to more specific recipes
+
+- SPECIFIC RECIPE QUERIES (e.g., "mango smoothie recipe", "how to make tomato soup", "green detox smoothie"):
+  - Title the page with the SPECIFIC recipe name (e.g., "Mango Tropical Smoothie Recipe")
+  - MUST include a "steps" atom with detailed numbered instructions (5-8 steps)
+  - Include ingredient list in intro paragraph or as a list atom
+  - Include a "related" atom with 4 RELATED RECIPES the user might also enjoy
+  - Related recipes should be variations or complementary recipes (e.g., for mango smoothie: "Pineapple Paradise Smoothie", "Tropical Green Smoothie", "Mango Lassi")
 
 CRITICAL - INTERACTIVE GUIDE ATOM:
 - For "guide" content_type when user asks for help choosing, YOU MUST include an interactive_guide atom

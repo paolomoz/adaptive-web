@@ -469,6 +469,8 @@ async function loadPage() {
       'step-by-step',
       'text-section',
       'interactive-guide',
+      'recipe-detail',
+      'product-detail',
     ];
     blockCSS.forEach((block) => {
       loadCSS(`${window.hlx.codeBasePath}/blocks/${block}/${block}.css`);

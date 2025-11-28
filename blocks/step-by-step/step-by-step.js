@@ -1,6 +1,6 @@
 /**
  * Step-by-Step Block
- * Numbered step-by-step instructions with optional tips
+ * Clean numbered instructions - Vitamix style
  */
 
 /**
@@ -61,10 +61,10 @@ export default function decorate(block) {
     const stepEl = document.createElement('div');
     stepEl.className = 'step';
 
-    // Step number badge
-    const numberBadge = document.createElement('div');
-    numberBadge.className = 'step-number';
-    numberBadge.textContent = step.number;
+    // Step number (period added via CSS ::after)
+    const numberEl = document.createElement('span');
+    numberEl.className = 'step-number';
+    numberEl.textContent = step.number;
 
     // Step content
     const content = document.createElement('div');
@@ -81,7 +81,7 @@ export default function decorate(block) {
 
       const tipIcon = document.createElement('span');
       tipIcon.className = 'tip-icon';
-      tipIcon.textContent = '\uD83D\uDCA1'; // Lightbulb emoji
+      tipIcon.textContent = '\u2139'; // Info symbol (ℹ)
 
       const tipText = document.createElement('span');
       tipText.textContent = step.tip;
@@ -91,7 +91,7 @@ export default function decorate(block) {
       content.appendChild(tipEl);
     }
 
-    stepEl.appendChild(numberBadge);
+    stepEl.appendChild(numberEl);
     stepEl.appendChild(content);
     container.appendChild(stepEl);
   });

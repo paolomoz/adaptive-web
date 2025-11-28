@@ -88,6 +88,20 @@ const BLOCK_LIBRARY = {
     priority: 95,
     description: 'Tab-based product selection guide with top 2-4 product picks organized by user intent (e.g., Best Value, High-Tech, Proven Classic). Each tab shows a detailed product card with specs, pros/cons, and actions. Includes a "Compare All" button that opens a comparison table overlay. Best for helping users choose between a few curated options.',
   },
+
+  // Single item detail pages (comprehensive standalone blocks)
+  'product-detail': {
+    for: ['single_product'],
+    required: ['product_detail'],
+    priority: 100,
+    description: 'Comprehensive single product page with hero gallery, specs accordion, features grid, what\'s included list, and related products. Use ONLY for single_product content type. This is a standalone comprehensive block.',
+  },
+  'recipe-detail': {
+    for: ['single_recipe'],
+    required: ['recipe_detail'],
+    priority: 100,
+    description: 'Comprehensive single recipe page with hero image, ingredients list, step-by-step directions, nutrition sidebar, equipment list, tags, and related recipes. Use ONLY for single_recipe content type. This is a standalone comprehensive block.',
+  },
 };
 
 /**
@@ -99,20 +113,22 @@ AVAILABLE BLOCKS:
 ${Object.entries(BLOCK_LIBRARY).map(([name, meta]) => `- ${name}: ${meta.description} (best for: ${meta.for.join(', ')})`).join('\n')}
 
 LAYOUT RULES:
-1. Always start with 'hero-banner' for the main heading
-2. **CRITICAL**: If an 'interactive_guide' atom is present, you MUST include the 'interactive-guide' block immediately after hero-banner. This is mandatory - do NOT skip it!
-3. Place most important content blocks early in the sequence
-4. End with 'cta-section' followed by 'related-topics'
-5. For recipes: include 'step-by-step' before the CTA
-6. For products: include 'specs-table' to show specifications
-7. IMPORTANT - When a 'table' atom is present, ALWAYS include either 'comparison-table' or 'specs-table' to render it. Tables are explicitly requested content.
-8. For comparisons: prefer 'comparison-cards' for browsing/selecting products, but use 'comparison-table' when user explicitly asks for a "table" or when a table atom is present
-9. Use 'text-section' when there are multiple descriptive paragraphs
-10. Include 'feature-cards' when feature_set atoms are present
-11. Include 'faq-accordion' when faq_set atoms are present
-12. Maximum 8 blocks per page to maintain focus
-13. For queries like "show all models", "compare blenders" - use comparison-cards
-14. For queries containing "table", "chart", "specs", "specifications" - MUST include comparison-table or specs-table
+1. **CRITICAL for single_product**: If content_type is "single_product", use ONLY the 'product-detail' block. It is comprehensive and standalone - do NOT add other blocks!
+2. **CRITICAL for single_recipe**: If content_type is "single_recipe", use ONLY the 'recipe-detail' block. It is comprehensive and standalone - do NOT add other blocks!
+3. For other content types: Always start with 'hero-banner' for the main heading
+4. **CRITICAL**: If an 'interactive_guide' atom is present, you MUST include the 'interactive-guide' block immediately after hero-banner. This is mandatory - do NOT skip it!
+5. Place most important content blocks early in the sequence
+6. End with 'cta-section' followed by 'related-topics'
+7. For recipes (not single_recipe): include 'step-by-step' before the CTA
+8. For products (not single_product): include 'specs-table' to show specifications
+9. IMPORTANT - When a 'table' atom is present, ALWAYS include either 'comparison-table' or 'specs-table' to render it. Tables are explicitly requested content.
+10. For comparisons: prefer 'comparison-cards' for browsing/selecting products, but use 'comparison-table' when user explicitly asks for a "table" or when a table atom is present
+11. Use 'text-section' when there are multiple descriptive paragraphs
+12. Include 'feature-cards' when feature_set atoms are present
+13. Include 'faq-accordion' when faq_set atoms are present
+14. Maximum 8 blocks per page to maintain focus
+15. For queries like "show all models", "compare blenders" - use comparison-cards
+16. For queries containing "table", "chart", "specs", "specifications" - MUST include comparison-table or specs-table
 
 RESPONSE FORMAT:
 Respond with ONLY valid JSON matching this schema:
@@ -301,6 +317,10 @@ function summarizeAtoms(atoms) {
       summary.push(`- list (${atom.style}): ${atom.items?.length || 0} items`);
     } else if (type === 'interactive_guide') {
       summary.push(`- interactive_guide: "${atom.title}" with ${atom.picks?.length || 0} curated product picks (THIS IS IMPORTANT - use interactive-guide block!)`);
+    } else if (type === 'product_detail') {
+      summary.push(`- product_detail: "${atom.name}" - Comprehensive single product data (THIS IS CRITICAL - use ONLY product-detail block for single_product pages!)`);
+    } else if (type === 'recipe_detail') {
+      summary.push(`- recipe_detail: "${atom.name}" - Comprehensive single recipe data (THIS IS CRITICAL - use ONLY recipe-detail block for single_recipe pages!)`);
     }
   }
 
@@ -318,7 +338,28 @@ export function getFallbackLayout(contentType, atoms) {
   const atomTypes = new Set(atoms.map((a) => a.type));
   const blocks = [];
 
-  // Always start with hero
+  // Handle single product/recipe pages with their comprehensive standalone blocks
+  if (contentType === 'single_product' && atomTypes.has('product_detail')) {
+    return {
+      blocks: [{
+        block_type: 'product-detail',
+        atom_mappings: { product: 'product_detail' },
+      }],
+      rationale: 'Single product detail page - using comprehensive product-detail block',
+    };
+  }
+
+  if (contentType === 'single_recipe' && atomTypes.has('recipe_detail')) {
+    return {
+      blocks: [{
+        block_type: 'recipe-detail',
+        atom_mappings: { recipe: 'recipe_detail' },
+      }],
+      rationale: 'Single recipe detail page - using comprehensive recipe-detail block',
+    };
+  }
+
+  // Always start with hero for other page types
   blocks.push({
     block_type: 'hero-banner',
     atom_mappings: {

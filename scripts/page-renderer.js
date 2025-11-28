@@ -1622,6 +1622,461 @@ function initInteractiveGuide(container) {
 }
 
 /**
+ * Render product-detail block from content atoms
+ * Comprehensive single product page with gallery, specs, features
+ */
+function renderProductDetailBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const productAtom = getAtom(atoms, 'product_detail');
+  if (!productAtom) return null;
+
+  const data = productAtom;
+
+  // Format price helper
+  const formatPrice = (price) => {
+    if (!price) return 'Price unavailable';
+    if (typeof price === 'string' && price.startsWith('$')) return price;
+    if (typeof price === 'number') return `$${price.toFixed(2)}`;
+    return price;
+  };
+
+  // Format spec key helper
+  const formatSpecKey = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+  // Render stars helper
+  const renderStars = (rating) => {
+    if (!rating) return '';
+    const fullStars = Math.floor(rating);
+    const hasHalf = rating % 1 >= 0.5;
+    let stars = '';
+    for (let i = 0; i < 5; i += 1) {
+      if (i < fullStars) {
+        stars += '<span class="star full">★</span>';
+      } else if (i === fullStars && hasHalf) {
+        stars += '<span class="star half">★</span>';
+      } else {
+        stars += '<span class="star empty">☆</span>';
+      }
+    }
+    return stars;
+  };
+
+  // Build the HTML
+  const html = `
+    <div class="product-detail block" data-block-name="product-detail" data-product='${JSON.stringify(data).replace(/'/g, '&#39;')}'>
+      <div class="product-hero">
+        <div class="product-gallery">
+          <div class="product-image-main">
+            <img src="${data.image_url || '/icons/placeholder.svg'}" alt="${data.name}" loading="eager">
+          </div>
+          ${data.gallery && data.gallery.length > 1 ? `
+            <div class="product-thumbnails">
+              ${data.gallery.map((img, i) => `
+                <button class="thumbnail ${i === 0 ? 'active' : ''}" data-index="${i}">
+                  <img src="${img}" alt="${data.name} view ${i + 1}">
+                </button>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="product-info">
+          <div class="product-meta">
+            ${data.series ? `<span class="product-series">${data.series}</span>` : ''}
+            ${data.rating ? `
+              <div class="product-rating">
+                <span class="stars">${renderStars(data.rating)}</span>
+                <span class="rating-value">${data.rating}</span>
+                ${data.review_count ? `<span class="review-count">(${data.review_count} reviews)</span>` : ''}
+              </div>
+            ` : ''}
+          </div>
+
+          <h1 class="product-title">${data.name}</h1>
+
+          ${data.tagline ? `<p class="product-tagline">${data.tagline}</p>` : ''}
+
+          <div class="product-price-section">
+            <span class="product-price">${formatPrice(data.price)}</span>
+            ${data.original_price && data.original_price > data.price ? `
+              <span class="product-original-price">${formatPrice(data.original_price)}</span>
+            ` : ''}
+          </div>
+
+          ${data.highlights && data.highlights.length > 0 ? `
+            <ul class="product-highlights">
+              ${data.highlights.map((h) => `<li>${h}</li>`).join('')}
+            </ul>
+          ` : ''}
+
+          <div class="product-actions">
+            ${data.url ? `
+              <a href="${data.url}" class="button primary" target="_blank" rel="noopener">
+                Shop Now
+              </a>
+            ` : ''}
+            <button class="button secondary compare-btn">Compare Models</button>
+          </div>
+
+          <div class="product-warranty">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            <span>${data.warranty || '10-Year Full Warranty'}</span>
+          </div>
+        </div>
+      </div>
+
+      ${data.description ? `
+        <div class="product-description-section">
+          <h2>About This Product</h2>
+          <p>${data.description}</p>
+        </div>
+      ` : ''}
+
+      ${data.features && data.features.length > 0 ? `
+        <div class="product-features-section">
+          <h2>Key Features</h2>
+          <div class="features-grid">
+            ${data.features.map((f) => `
+              <div class="feature-item">
+                ${f.icon ? `<span class="feature-icon">${f.icon}</span>` : ''}
+                <h3>${f.title}</h3>
+                <p>${f.description}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${data.specs && Object.keys(data.specs).length > 0 ? `
+        <div class="product-specs-section">
+          <h2>Specifications</h2>
+          <div class="specs-accordion">
+            <button class="accordion-toggle" aria-expanded="true">
+              <span>Technical Details</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="accordion-content">
+              <table class="specs-table">
+                <tbody>
+                  ${Object.entries(data.specs).map(([key, value]) => `
+                    <tr>
+                      <th>${formatSpecKey(key)}</th>
+                      <td>${value}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      ${data.whats_included && data.whats_included.length > 0 ? `
+        <div class="product-included-section">
+          <h2>What's Included</h2>
+          <ul class="included-list">
+            ${data.whats_included.map((item) => `
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                ${item}
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${data.related_products && data.related_products.length > 0 ? `
+        <div class="product-related-section">
+          <h2>You Might Also Like</h2>
+          <div class="related-grid">
+            ${data.related_products.map((p) => `
+              <div class="related-product" data-query="${p.name}">
+                <img src="${p.image_url || '/icons/placeholder.svg'}" alt="${p.name}">
+                <h3>${p.name}</h3>
+                ${p.price ? `<span class="related-price">${formatPrice(p.price)}</span>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  wrapper.innerHTML = html;
+
+  // Initialize accordion
+  const accordionToggle = wrapper.querySelector('.accordion-toggle');
+  if (accordionToggle) {
+    accordionToggle.addEventListener('click', () => {
+      const expanded = accordionToggle.getAttribute('aria-expanded') === 'true';
+      accordionToggle.setAttribute('aria-expanded', !expanded);
+      const content = accordionToggle.nextElementSibling;
+      if (content) {
+        content.style.display = expanded ? 'none' : 'block';
+      }
+    });
+  }
+
+  // Initialize gallery
+  if (data.gallery && data.gallery.length > 1) {
+    const mainImage = wrapper.querySelector('.product-image-main img');
+    const thumbnails = wrapper.querySelectorAll('.thumbnail');
+    thumbnails.forEach((thumb) => {
+      thumb.addEventListener('click', () => {
+        const index = parseInt(thumb.dataset.index, 10);
+        mainImage.src = data.gallery[index];
+        thumbnails.forEach((t) => t.classList.remove('active'));
+        thumb.classList.add('active');
+      });
+    });
+  }
+
+  // Add click handlers for related products
+  wrapper.querySelectorAll('.related-product').forEach((card) => {
+    card.addEventListener('click', () => {
+      const query = card.dataset.query;
+      if (query) {
+        import('./router.js').then(({ navigateToQuery }) => {
+          navigateToQuery(query);
+        });
+      }
+    });
+  });
+
+  return section;
+}
+
+/**
+ * Render recipe-detail block from content atoms
+ * Comprehensive single recipe page with ingredients, directions, nutrition
+ */
+function renderRecipeDetailBlock(atoms) {
+  const section = createSection();
+  const wrapper = section.querySelector('div');
+
+  const recipeAtom = getAtom(atoms, 'recipe_detail');
+  if (!recipeAtom) return null;
+
+  const data = recipeAtom;
+
+  // Check if image URL is a prompt (needs generation) or actual URL
+  const imageUrl = data.image_url || '';
+  const hasImage = imageUrl.startsWith('http') || imageUrl.startsWith('/');
+
+  // Build the recipe detail layout
+  const html = `
+    <div class="recipe-detail block" data-block-name="recipe-detail" data-recipe='${JSON.stringify(data).replace(/'/g, '&#39;')}'>
+      <div class="recipe-hero">
+        <div class="recipe-hero-inner">
+          <div class="recipe-image ${hasImage ? '' : 'skeleton'}">
+            ${hasImage ? `<img src="${imageUrl}" alt="${data.name}" loading="eager">` : ''}
+          </div>
+          <div class="recipe-header">
+            <h1 class="recipe-title">${data.name}</h1>
+
+            ${data.description ? `<p class="recipe-description">${data.description}</p>` : ''}
+
+            <div class="recipe-meta">
+              ${data.total_time ? `
+                <div class="meta-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  <span class="meta-label">Total Time</span>
+                  <span class="meta-value">${data.total_time}</span>
+                </div>
+              ` : ''}
+              ${data.servings ? `
+                <div class="meta-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                  <span class="meta-label">Yield</span>
+                  <span class="meta-value">${data.servings}</span>
+                </div>
+              ` : ''}
+              ${data.difficulty ? `
+                <div class="meta-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                  </svg>
+                  <span class="meta-label">Difficulty</span>
+                  <span class="meta-value">${data.difficulty}</span>
+                </div>
+              ` : ''}
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="recipe-content-wrapper">
+        <div class="recipe-content">
+          <div class="recipe-sidebar">
+            ${data.nutrition ? `
+              <div class="nutrition-card">
+                <h3>Nutrition</h3>
+                <p class="serving-info">${data.nutrition.serving_size || '1 serving'}</p>
+                <div class="nutrition-list">
+                  ${data.nutrition.calories ? `
+                    <div class="nutrition-row primary">
+                      <span class="nutrition-label">Calories</span>
+                      <span class="nutrition-value">${data.nutrition.calories}</span>
+                    </div>
+                  ` : ''}
+                  ${data.nutrition.fat ? `
+                    <div class="nutrition-row">
+                      <span class="nutrition-label">Total Fat</span>
+                      <span class="nutrition-value">${data.nutrition.fat}</span>
+                    </div>
+                  ` : ''}
+                  ${data.nutrition.carbs ? `
+                    <div class="nutrition-row">
+                      <span class="nutrition-label">Total Carbohydrate</span>
+                      <span class="nutrition-value">${data.nutrition.carbs}</span>
+                    </div>
+                  ` : ''}
+                  ${data.nutrition.fiber ? `
+                    <div class="nutrition-row">
+                      <span class="nutrition-label">Dietary Fiber</span>
+                      <span class="nutrition-value">${data.nutrition.fiber}</span>
+                    </div>
+                  ` : ''}
+                  ${data.nutrition.sugar ? `
+                    <div class="nutrition-row">
+                      <span class="nutrition-label">Sugars</span>
+                      <span class="nutrition-value">${data.nutrition.sugar}</span>
+                    </div>
+                  ` : ''}
+                  ${data.nutrition.protein ? `
+                    <div class="nutrition-row">
+                      <span class="nutrition-label">Protein</span>
+                      <span class="nutrition-value">${data.nutrition.protein}</span>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            ` : ''}
+
+            ${data.equipment && data.equipment.length > 0 ? `
+              <div class="equipment-card">
+                <h3>Equipment Needed</h3>
+                <ul>
+                  ${data.equipment.map((item) => `<li>${item}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="recipe-main">
+            ${data.ingredients && data.ingredients.length > 0 ? `
+              <div class="recipe-section ingredients-section">
+                <h2>Ingredients</h2>
+                <ul class="ingredients-list">
+                  ${data.ingredients.map((ing) => `
+                    <li>
+                      <span class="ingredient-bullet"></span>
+                      <span class="ingredient-text">
+                        ${ing.amount ? `<span class="ingredient-amount">${ing.amount}</span> ` : ''}${ing.name || ing}
+                      </span>
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
+            ` : ''}
+
+            <div class="recipe-section directions-section">
+              <h2>Directions</h2>
+              <ol class="directions-list">
+                ${data.steps && data.steps.length > 0 ? data.steps.map((step, i) => `
+                  <li>
+                    <span class="step-number">${i + 1}</span>
+                    <div class="step-content">
+                      <p class="step-instruction">${step.instruction || step}</p>
+                      ${step.tip ? `
+                        <div class="step-tip">
+                          <span class="tip-icon">i</span>
+                          <span>${step.tip}</span>
+                        </div>
+                      ` : ''}
+                    </div>
+                  </li>
+                `).join('') : '<li>No instructions available</li>'}
+              </ol>
+            </div>
+
+          </div>
+        </div>
+
+        ${data.chef_notes ? `
+          <div class="chef-notes-section">
+            <h2>Chef's Notes</h2>
+            <p>${data.chef_notes}</p>
+          </div>
+        ` : ''}
+
+        ${data.related_recipes && data.related_recipes.length > 0 ? `
+          <div class="recipe-section related-recipes-section">
+            <h2>You Might Also Like</h2>
+            <div class="related-grid">
+              ${data.related_recipes.map((r) => {
+                const hasImage = r.image_url && (r.image_url.startsWith('http') || r.image_url.startsWith('/'));
+                return `
+                <div class="related-recipe" data-query="${r.query || r.name}">
+                  <div class="related-image ${hasImage ? '' : 'skeleton'}">
+                    ${hasImage ? `<img src="${r.image_url}" alt="${r.name}">` : ''}
+                  </div>
+                  <h3>${r.name}</h3>
+                  ${r.description ? `<p>${r.description}</p>` : ''}
+                </div>
+              `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  wrapper.innerHTML = html;
+
+  // Add click handlers for related recipes
+  wrapper.querySelectorAll('.related-recipe').forEach((card) => {
+    card.addEventListener('click', () => {
+      const query = card.dataset.query;
+      if (query) {
+        import('./router.js').then(({ navigateToQuery }) => {
+          navigateToQuery(query);
+        });
+      }
+    });
+  });
+
+  // Setup tab functionality
+  const tabs = wrapper.querySelectorAll('.recipe-tab');
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+
+  return section;
+}
+
+/**
  * Block renderer map for flexible pipeline
  */
 const BLOCK_RENDERERS = {
@@ -1637,6 +2092,8 @@ const BLOCK_RENDERERS = {
   'related-topics': renderRelatedTopicsBlock,
   'bullet-list': renderBulletListBlock,
   'interactive-guide': renderInteractiveGuideBlock,
+  'product-detail': renderProductDetailBlock,
+  'recipe-detail': renderRecipeDetailBlock,
 };
 
 /**
@@ -1695,6 +2152,40 @@ export function updatePageImages(pageData, container) {
           const imgContainer = featureCards[index].querySelector('.feature-card-image');
           if (imgContainer && imgContainer.classList.contains('skeleton')) {
             imgContainer.innerHTML = `<img src="${feature.image_url}" alt="${feature.title || 'Feature image'}" loading="lazy">`;
+            imgContainer.classList.remove('skeleton');
+          }
+        }
+      });
+    }
+
+    // Flexible pipeline: update recipe_detail images
+    const recipeDetail = pageData.content_atoms?.find((a) => a.type === 'recipe_detail');
+    if (recipeDetail?.image_url) {
+      const recipeImg = container.querySelector('.recipe-image');
+      if (recipeImg && recipeImg.classList.contains('skeleton')) {
+        recipeImg.innerHTML = `<img src="${recipeDetail.image_url}" alt="${recipeDetail.name || 'Recipe image'}" loading="eager">`;
+        recipeImg.classList.remove('skeleton');
+      }
+    }
+
+    // Flexible pipeline: update product_detail images
+    const productDetail = pageData.content_atoms?.find((a) => a.type === 'product_detail');
+    if (productDetail?.image_url) {
+      const productImg = container.querySelector('.product-image');
+      if (productImg && productImg.classList.contains('skeleton')) {
+        productImg.innerHTML = `<img src="${productDetail.image_url}" alt="${productDetail.name || 'Product image'}" loading="eager">`;
+        productImg.classList.remove('skeleton');
+      }
+    }
+
+    // Flexible pipeline: update related recipe images
+    if (recipeDetail?.related_recipes?.length) {
+      const relatedCards = container.querySelectorAll('.related-recipe');
+      recipeDetail.related_recipes.forEach((recipe, index) => {
+        if (recipe.image_url && relatedCards[index]) {
+          const imgContainer = relatedCards[index].querySelector('.related-image');
+          if (imgContainer && imgContainer.classList.contains('skeleton')) {
+            imgContainer.innerHTML = `<img src="${recipe.image_url}" alt="${recipe.name || 'Related recipe'}" loading="lazy">`;
             imgContainer.classList.remove('skeleton');
           }
         }

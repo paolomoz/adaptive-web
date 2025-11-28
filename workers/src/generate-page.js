@@ -87,6 +87,39 @@ function extractImagePromptsFromAtoms(contentAtoms, metadata) {
     });
   }
 
+  // Recipe image from recipe_detail atoms
+  const recipeDetail = contentAtoms.find((a) => a.type === 'recipe_detail');
+  if (recipeDetail?.image_url && !recipeDetail.image_url.startsWith('http')) {
+    // image_url contains a prompt if it doesn't start with http
+    prompts.push({
+      type: 'recipe',
+      prompt: recipeDetail.image_url,
+    });
+  }
+
+  // Product image from product_detail atoms
+  const productDetail = contentAtoms.find((a) => a.type === 'product_detail');
+  if (productDetail?.image_url && !productDetail.image_url.startsWith('http')) {
+    // image_url contains a prompt if it doesn't start with http
+    prompts.push({
+      type: 'product',
+      prompt: productDetail.image_url,
+    });
+  }
+
+  // Related recipe images from recipe_detail atoms
+  if (recipeDetail?.related_recipes) {
+    recipeDetail.related_recipes.forEach((recipe, index) => {
+      if (recipe.image_prompt) {
+        prompts.push({
+          type: 'related_recipe',
+          index,
+          prompt: recipe.image_prompt,
+        });
+      }
+    });
+  }
+
   return prompts;
 }
 
@@ -358,11 +391,14 @@ async function generateImagesBackgroundFlexible(pageId, prompts, env) {
       updates.metadata = { ...page.metadata, image_url: heroImage.url };
     }
 
-    // Find feature images and comparison images, then apply to content_atoms
+    // Find feature images, comparison images, recipe images, and product images
     const featureImages = images.filter((img) => img.type === 'feature');
     const comparisonImages = images.filter((img) => img.type === 'comparison');
+    const recipeImage = images.find((img) => img.type === 'recipe');
+    const productImage = images.find((img) => img.type === 'product');
+    const relatedRecipeImages = images.filter((img) => img.type === 'related_recipe');
 
-    if ((featureImages.length > 0 || comparisonImages.length > 0) && page.content_atoms) {
+    if ((featureImages.length > 0 || comparisonImages.length > 0 || recipeImage || productImage || relatedRecipeImages.length > 0) && page.content_atoms) {
       updates.content_atoms = page.content_atoms.map((atom) => {
         // Apply feature images to feature_set atoms
         if (atom.type === 'feature_set' && atom.items) {
@@ -383,6 +419,24 @@ async function generateImagesBackgroundFlexible(pageId, prompts, env) {
               return comparisonImg ? { ...item, image_url: comparisonImg.url } : item;
             }),
           };
+        }
+        // Apply recipe image and related recipe images to recipe_detail atoms
+        if (atom.type === 'recipe_detail') {
+          let updatedAtom = { ...atom };
+          if (recipeImage) {
+            updatedAtom.image_url = recipeImage.url;
+          }
+          if (atom.related_recipes && relatedRecipeImages.length > 0) {
+            updatedAtom.related_recipes = atom.related_recipes.map((recipe, i) => {
+              const relatedImg = relatedRecipeImages.find((img) => img.index === i);
+              return relatedImg ? { ...recipe, image_url: relatedImg.url } : recipe;
+            });
+          }
+          return updatedAtom;
+        }
+        // Apply product image to product_detail atoms
+        if (atom.type === 'product_detail' && productImage) {
+          return { ...atom, image_url: productImage.url };
         }
         return atom;
       });
