@@ -66,9 +66,9 @@
 
 /* Individual card - Vitamix flat design */
 .comparison-card {
-  background: white;
+  background: transparent;
   border-radius: 8px;
-  border: 1px solid var(--border-color);
+  border: none;
   padding: 20px;
   position: relative;
   transition: box-shadow 0.2s ease;
