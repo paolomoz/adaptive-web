@@ -1,10 +1,11 @@
-/* header and nav layout - Vitamix dark style */
+/* header and nav layout - Vitamix light style */
 header .nav-wrapper {
-  background-color: var(--color-secondary);
+  background-color: #FAFAFA;
   width: 100%;
   z-index: 2;
   position: fixed;
-  color: white;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-color);
 }
 
 header nav {
@@ -34,7 +35,7 @@ header nav[aria-expanded='true'] {
 @media (width >= 900px) {
   header nav {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     gap: 0 32px;
     max-width: 1264px;
     padding: 0 32px;
@@ -55,11 +56,11 @@ header nav a:any-link {
   color: currentcolor;
 }
 
-/* hamburger */
+/* hamburger - hidden for now */
 header nav .nav-hamburger {
   grid-area: hamburger;
   height: 22px;
-  display: flex;
+  display: none;
   align-items: center;
 }
 
@@ -150,12 +151,12 @@ header nav .nav-brand img {
   height: auto;
 }
 
-/* sections */
+/* sections - hidden for now */
 header nav .nav-sections {
   grid-area: sections;
   flex: 1 1 auto;
-  display: none;
-  visibility: hidden;
+  display: none !important;
+  visibility: hidden !important;
 }
 
 header nav[aria-expanded='true'] .nav-sections {
@@ -268,7 +269,8 @@ header nav .nav-sections ul > li > ul > li {
   }
 }
 
-/* tools */
+/* tools - hidden for now */
 header nav .nav-tools {
   grid-area: tools;
+  display: none !important;
 }

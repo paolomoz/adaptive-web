@@ -126,10 +126,13 @@ export default async function decorate(block) {
   });
 
   const navBrand = nav.querySelector('.nav-brand');
-  const brandLink = navBrand.querySelector('.button');
-  if (brandLink) {
-    brandLink.className = '';
-    brandLink.closest('.button-container').className = '';
+  // Replace brand content with Vitamix logo
+  if (navBrand) {
+    navBrand.innerHTML = `
+      <a href="/" aria-label="Vitamix Home">
+        <img src="/icons/vitamix-logo.svg" alt="Vitamix" width="140" height="28">
+      </a>
+    `;
   }
 
   const navSections = nav.querySelector('.nav-sections');
