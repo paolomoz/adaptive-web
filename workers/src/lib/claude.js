@@ -91,6 +91,7 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
         "price": "$629",
         "rating": 4.8,
         "description": "Brief description of product features",
+        "image_prompt": "Modern Vitamix A3500 blender with touchscreen display, brushed stainless steel finish, 64oz container, on clean white kitchen counter with soft natural lighting",
         "specs": {
           "series": "Ascent",
           "price": "$629",
@@ -108,6 +109,8 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
     // IMPORTANT for comparison: Include ALL Vitamix models in the relevant category
     // For "show all models" type queries, include at minimum: A3500, A2500, A2300, E320, E310, 750, Propel
     // Always use consistent spec keys: series, price, motor, container, warranty, programs, smart, interface
+    // CRITICAL: Each comparison item MUST include an image_prompt for AI image generation
+    // Example image_prompt: "Modern Vitamix [model] blender with [finish], [container size] container, studio product shot on white background"
 
     // For "guide" or "comparison" when user needs help choosing - include interactive_guide:
     // Use this for queries like "best blender for smoothies", "which vitamix should I buy", "help me choose"
@@ -177,7 +180,9 @@ CRITICAL - INTERACTIVE GUIDE ATOM:
 - For products: include table with specifications
 - For comparisons (content_type: comparison): include comparison atom with ALL relevant products (6-10 products)
   - Use comparison atom for "show all models", "compare A vs B", "all vitamix blenders"
-  - Each product must have: name, series, price, rating, description, specs object
+  - Each product must have: name, series, price, rating, description, image_prompt, specs object
+  - REQUIRED: Each comparison item MUST include an image_prompt for AI product photography
+  - image_prompt format: "Modern Vitamix [model] blender with [finish], [container size] container, professional product shot"
   - Specs must use consistent keys: series, price, motor, container, warranty, programs, smart, interface
 - For guide with interactive_guide atom (content_type: guide): include 2-4 curated picks
   - Use this instead of comparison when user wants personalized help: "which should I buy", "recommend", "best for smoothies"

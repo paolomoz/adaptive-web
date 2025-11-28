@@ -118,6 +118,20 @@ function extractImagePromptsFromAtoms(contentAtoms, metadata) {
     });
   }
 
+  // Comparison product images from comparison atoms
+  const comparison = contentAtoms.find((a) => a.type === 'comparison');
+  if (comparison?.items) {
+    comparison.items.forEach((product, index) => {
+      if (product.image_prompt) {
+        prompts.push({
+          type: 'comparison',
+          index,
+          prompt: product.image_prompt,
+        });
+      }
+    });
+  }
+
   return prompts;
 }
 
@@ -434,16 +448,29 @@ async function generateImagesBackgroundFlexible(pageId, prompts, env) {
       updates.metadata = { ...page.metadata, image_url: heroImage.url };
     }
 
-    // Find feature images and apply to content_atoms
+    // Find feature images and comparison images, then apply to content_atoms
     const featureImages = images.filter((img) => img.type === 'feature');
-    if (featureImages.length > 0 && page.content_atoms) {
+    const comparisonImages = images.filter((img) => img.type === 'comparison');
+
+    if ((featureImages.length > 0 || comparisonImages.length > 0) && page.content_atoms) {
       updates.content_atoms = page.content_atoms.map((atom) => {
+        // Apply feature images to feature_set atoms
         if (atom.type === 'feature_set' && atom.items) {
           return {
             ...atom,
             items: atom.items.map((item, i) => {
               const featureImg = featureImages.find((img) => img.index === i);
               return featureImg ? { ...item, image_url: featureImg.url } : item;
+            }),
+          };
+        }
+        // Apply comparison images to comparison atoms
+        if (atom.type === 'comparison' && atom.items) {
+          return {
+            ...atom,
+            items: atom.items.map((item, i) => {
+              const comparisonImg = comparisonImages.find((img) => img.index === i);
+              return comparisonImg ? { ...item, image_url: comparisonImg.url } : item;
             }),
           };
         }

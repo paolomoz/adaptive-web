@@ -97,7 +97,7 @@ async function getAccessToken(serviceAccountJson) {
 /**
  * Enhance prompt for Vitamix food photography
  * @param {string} prompt - Original prompt
- * @param {string} type - Image type ('hero' or 'feature')
+ * @param {string} type - Image type ('hero', 'feature', or 'comparison')
  * @returns {string} Enhanced prompt
  */
 function enhancePrompt(prompt, type) {
@@ -106,6 +106,11 @@ function enhancePrompt(prompt, type) {
     || promptLower.includes('vitamix')
     || promptLower.includes('machine')
     || promptLower.includes('appliance');
+
+  // Comparison images are product shots - use product photography style
+  if (type === 'comparison') {
+    return `Professional product photography: ${prompt}. Clean white or light gray studio background, professional lighting with soft shadows, high-resolution product shot. Modern, premium feel. No text or watermarks.`;
+  }
 
   if (type === 'hero' || isBlenderRelated) {
     return `Professional food photography: ${prompt}. Modern Vitamix blender prominently featured in frame. High-quality, well-lit modern kitchen setting, clean composition, shallow depth of field. Appetizing and aspirational.`;
@@ -210,9 +215,14 @@ async function generateFallbackImage(accessToken, projectId, r2Bucket, pageId, o
   const aspectRatio = type === 'hero' ? '16:9' : '4:3';
 
   // Safe generic prompts that won't trigger content filters
-  const fallbackPrompt = type === 'hero'
-    ? 'Professional food photography: Fresh colorful fruits and vegetables arranged beautifully on a clean white marble counter. Modern Vitamix blender in background. Bright natural lighting, appetizing composition.'
-    : 'Professional food photography: Fresh healthy ingredients including berries, leafy greens, and citrus fruits. Clean modern kitchen setting with soft natural lighting. Appetizing and vibrant colors.';
+  let fallbackPrompt;
+  if (type === 'hero') {
+    fallbackPrompt = 'Professional food photography: Fresh colorful fruits and vegetables arranged beautifully on a clean white marble counter. Modern Vitamix blender in background. Bright natural lighting, appetizing composition.';
+  } else if (type === 'comparison') {
+    fallbackPrompt = 'Professional product photography: Modern high-end blender with sleek design, brushed stainless steel finish, 64oz container. Clean white studio background, professional lighting with soft shadows. Premium kitchen appliance product shot.';
+  } else {
+    fallbackPrompt = 'Professional food photography: Fresh healthy ingredients including berries, leafy greens, and citrus fruits. Clean modern kitchen setting with soft natural lighting. Appetizing and vibrant colors.';
+  }
 
   console.log(`Generating fallback image for ${type}${index !== undefined ? `-${index}` : ''}`);
 
