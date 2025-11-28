@@ -21,6 +21,7 @@ header nav {
   height: var(--nav-height);
   padding: 0 24px;
   font-family: var(--body-font-family);
+  position: relative;
 }
 
 header nav[aria-expanded='true'] {
@@ -35,10 +36,12 @@ header nav[aria-expanded='true'] {
 @media (width >= 900px) {
   header nav {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
+    align-items: center;
     gap: 0 32px;
     max-width: 1264px;
     padding: 0 32px;
+    position: relative;
   }
 
   header nav[aria-expanded='true'] {
@@ -278,7 +281,10 @@ header nav .nav-tools {
 
 /* Header search bar */
 header nav .nav-search {
-  flex: 1;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
   max-width: 500px;
 }
 
