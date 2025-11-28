@@ -11,8 +11,8 @@
 }
 
 .feature-card {
-  background: white;
-  border: 1px solid var(--border-color);
+  background: transparent;
+  border: none;
   border-radius: 8px;
   overflow: hidden;
   transition: box-shadow 0.2s ease;
