@@ -292,8 +292,9 @@ header nav .nav-search {
   gap: 0;
   padding: 0;
   background: var(--color-charcoal);
-  border: none;
-  border-radius: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .header-search-container:focus-within {
