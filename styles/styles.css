@@ -380,20 +380,58 @@ main .section.dark a {
   border-radius: 50px;
 }
 
-/* Homepage Welcome */
-.homepage-welcome {
+/* Homepage Hero with Video Background */
+.homepage-hero {
+  position: relative;
+  height: 1000px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.homepage-hero-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  z-index: 0;
+}
+
+.homepage-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
+.homepage-hero-content {
+  position: relative;
+  z-index: 2;
   text-align: center;
-  padding: 40px 0;
+  color: white;
+  padding: 0 24px;
+  max-width: 800px;
 }
 
-.homepage-welcome h1 {
-  margin-bottom: 16px;
+.homepage-hero-content h1 {
+  font-size: var(--heading-font-size-xxl);
+  margin-bottom: 24px;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.homepage-welcome p {
-  color: var(--text-color-light);
+.homepage-hero-content p {
+  font-size: var(--body-font-size-m);
+  color: rgba(255, 255, 255, 0.9);
   max-width: 600px;
   margin: 0 auto;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Loading State */

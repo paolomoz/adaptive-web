@@ -413,16 +413,23 @@ export async function renderHomepage(suggestedTopics, container) {
   // Clear existing content
   container.innerHTML = '';
 
-  // Hero welcome section
-  const welcomeSection = createSection();
-  const welcomeWrapper = welcomeSection.querySelector('div');
-  welcomeWrapper.innerHTML = `
-    <div class="homepage-welcome">
+  // Add homepage class for styling
+  container.classList.add('homepage');
+
+  // Video background hero section
+  const heroSection = document.createElement('div');
+  heroSection.className = 'homepage-hero';
+  heroSection.innerHTML = `
+    <video class="homepage-hero-video" autoplay muted loop playsinline aria-hidden="true">
+      <source src="https://player.vimeo.com/progressive_redirect/playback/742715169/rendition/1080p/file.mp4?loc=external&signature=af88564d33ef1f252232f6f7448a3939c80664afacb4a865588b5d1bb4fc9bfe" type="video/mp4">
+    </video>
+    <div class="homepage-hero-overlay"></div>
+    <div class="homepage-hero-content">
       <h1>Discover Your Perfect Vitamix</h1>
       <p>Explore blenders, recipes, and blending techniques tailored to your interests. What would you like to make today?</p>
     </div>
   `;
-  container.appendChild(welcomeSection);
+  container.appendChild(heroSection);
 
   // Render suggestions
   const suggestionsSection = renderHomepageSuggestions(suggestedTopics);
