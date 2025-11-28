@@ -131,7 +131,7 @@ export default async function decorate(block) {
   if (navBrand) {
     navBrand.innerHTML = `
       <a href="/" aria-label="Vitamix Home">
-        <img src="/icons/vitamix-logo.svg" alt="Vitamix" width="140" height="28">
+        <img src="/icons/vitamix-logo.svg" alt="Vitamix" width="160" height="35">
       </a>
     `;
   }
