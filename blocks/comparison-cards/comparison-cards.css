@@ -98,7 +98,7 @@
   background: #e0f2fe;
   color: #0284c7;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .card-smart-badge svg {
@@ -116,7 +116,7 @@
   background: #22c55e;
   color: white;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Card image - Vitamix style light gray bg */
@@ -147,7 +147,7 @@
 
 .card-name {
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-color);
   margin: 0;
 }
@@ -157,7 +157,7 @@
   align-items: center;
   gap: 4px;
   font-size: var(--body-font-size-xs);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-color);
 }
 
@@ -245,7 +245,7 @@
 }
 
 .compare-bar-label {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-color);
 }
 
@@ -304,7 +304,7 @@
   border: none;
   border-radius: 4px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -367,7 +367,7 @@
 .compare-modal-header h3 {
   margin: 0;
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .compare-modal-close {
@@ -437,7 +437,7 @@
 
 .compare-product-name {
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 500;
   margin: 0 0 4px;
 }
 
@@ -455,7 +455,7 @@
   text-decoration: none;
   border-radius: 4px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   transition: background 0.2s ease;
@@ -500,7 +500,7 @@
 
 .compare-spec-label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-color-light);

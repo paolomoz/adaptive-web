@@ -25,7 +25,7 @@
   padding: 16px 12px;
   text-align: left;
   font-size: var(--body-font-size-xs);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-color-light);
   white-space: nowrap;
 }
@@ -91,7 +91,7 @@
 }
 
 .comparison-model-name {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-color);
 }
 
@@ -103,7 +103,7 @@
 
 /* Price styling */
 .comparison-price {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-color);
 }
 
@@ -113,7 +113,7 @@
   padding: 4px 12px;
   border-radius: 20px;
   font-size: var(--body-font-size-xs);
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
 }
 

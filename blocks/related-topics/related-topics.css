@@ -44,7 +44,7 @@
 
 .related-topic-card h3 {
   font-size: var(--body-font-size-xs);
-  font-weight: 600;
+  font-weight: 500;
   margin: 0 0 4px;
   color: var(--text-color);
   line-height: 1.3;

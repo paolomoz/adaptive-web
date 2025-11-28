@@ -44,7 +44,7 @@
 
 .suggestion-card h3 {
   font-size: var(--body-font-size-s);
-  font-weight: 600;
+  font-weight: 500;
   margin: 0 0 8px;
   color: var(--text-color);
 }
