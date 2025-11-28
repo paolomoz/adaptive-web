@@ -154,10 +154,8 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
       "series": "Ascent Series",
       "tagline": "The ultimate blending machine with touchscreen control",
       "price": "$629",
-      "url": "https://www.vitamix.com/us/en_us/shop/a3500",
-      "image_url": "URL from RAG or image_prompt for generation",
-      "rating": 4.8,
-      "review_count": 1250,
+      "url": "https://www.vitamix.com/vr/en_us/shop/blenders/a3500i",
+      "image_url": "Modern Vitamix A3500 blender with touchscreen display, sleek black finish, 64oz container, professional product shot on white background",
       "warranty": "10-Year Full Warranty",
       "highlights": [
         "Touchscreen controls with 5 program settings",
@@ -180,7 +178,8 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
       },
       "whats_included": ["Motor Base", "64-oz Container", "Tamper", "Getting Started Guide"],
       "related_products": [
-        { "name": "Vitamix A2500", "price": "$549", "image_url": "..." }
+        { "name": "Vitamix A2500", "price": "$549", "description": "Ascent Series with programmable settings", "query": "vitamix a2500", "image_prompt": "Modern Vitamix A2500 blender with dial controls, sleek design, 64oz container, professional product shot" },
+        { "name": "Vitamix E320", "price": "$449", "description": "Explorian Series entry-level professional", "query": "vitamix e320", "image_prompt": "Vitamix E320 Explorian blender with dial speed control, compact design, professional product photography" }
       ]
     },
 
@@ -232,6 +231,7 @@ GUIDELINES:
   - "single_product" for SPECIFIC product queries like "vitamix a3500", "tell me about the e310", "a2500 specs"
     * MUST include a product_detail atom with comprehensive information
     * Pull data from RAG context when available
+    * CRITICAL: Extract the product's shop URL from RAG sources (e.g., https://www.vitamix.com/vr/en_us/shop/blenders/a3500i)
   - "single_recipe" for SPECIFIC recipe queries like "mango smoothie recipe", "how to make tomato soup"
     * MUST include a recipe_detail atom with ingredients, steps, nutrition
     * Can augment RAG data with generated content
@@ -279,7 +279,24 @@ CRITICAL - INTERACTIVE GUIDE ATOM:
   - tab_icon options: "dollar", "wifi", "star", "heart"
   - badge_style options: "best-value", "chef-favorite", "smart"
 - Use RAG context data when available for accurate specs/prices
+- CRITICAL URL RULE: For product_detail.url field, you MUST copy the EXACT URL from RAG context
+  - Look for "Product Page:" in the RAG data and use that URL EXACTLY
+  - Correct format: https://www.vitamix.com/vr/en_us/shop/blenders/a2500i
+  - NEVER use /products/ URLs - these are WRONG and will 404
+  - NEVER make up URLs - only use URLs from RAG context
+  - If no RAG URL available, set url to null
 - Image prompts should be detailed and appetizing for food, or professional for products`;
+
+// URL mapping for products without RAG (fallback)
+const VITAMIX_PRODUCT_URLS = {
+  'a3500': 'https://www.vitamix.com/vr/en_us/shop/blenders/a3500i',
+  'a2500': 'https://www.vitamix.com/vr/en_us/shop/blenders/a2500i',
+  'a2300': 'https://www.vitamix.com/vr/en_us/shop/blenders/a2300i',
+  'e310': 'https://www.vitamix.com/vr/en_us/shop/blenders/e310',
+  'e320': 'https://www.vitamix.com/vr/en_us/shop/blenders/e320',
+  'v1200': 'https://www.vitamix.com/vr/en_us/shop/blenders/venturist-v1200i',
+  '750': 'https://www.vitamix.com/us/en_us/shop/professional-series-750',
+};
 
 /**
  * Legacy system prompt for backward compatibility
@@ -432,6 +449,50 @@ Remember to respond with ONLY valid JSON matching the schema. No explanations or
 }
 
 /**
+ * Fix incorrect Vitamix product URLs in content atoms
+ * Replaces /products/ URLs with correct /vr/en_us/shop/blenders/ URLs
+ * @param {Array} contentAtoms - Content atoms array
+ * @returns {Array} Fixed content atoms
+ */
+function fixProductUrls(contentAtoms) {
+  if (!Array.isArray(contentAtoms)) return contentAtoms;
+
+  return contentAtoms.map((atom) => {
+    if (atom.type === 'product_detail' && atom.url) {
+      // Check if URL uses incorrect /products/ format
+      if (atom.url.includes('/products/') || atom.url.includes('/us/en_us/shop/')) {
+        // Extract model from URL
+        const urlLower = atom.url.toLowerCase();
+        let fixedUrl = null;
+
+        // Match known product models
+        if (urlLower.includes('a3500')) {
+          fixedUrl = VITAMIX_PRODUCT_URLS['a3500'];
+        } else if (urlLower.includes('a2500')) {
+          fixedUrl = VITAMIX_PRODUCT_URLS['a2500'];
+        } else if (urlLower.includes('a2300')) {
+          fixedUrl = VITAMIX_PRODUCT_URLS['a2300'];
+        } else if (urlLower.includes('e310')) {
+          fixedUrl = VITAMIX_PRODUCT_URLS['e310'];
+        } else if (urlLower.includes('e320')) {
+          fixedUrl = VITAMIX_PRODUCT_URLS['e320'];
+        } else if (urlLower.includes('v1200')) {
+          fixedUrl = VITAMIX_PRODUCT_URLS['v1200'];
+        } else if (urlLower.includes('750')) {
+          fixedUrl = VITAMIX_PRODUCT_URLS['750'];
+        }
+
+        if (fixedUrl) {
+          console.log(`Fixed product URL: ${atom.url} -> ${fixedUrl}`);
+          return { ...atom, url: fixedUrl };
+        }
+      }
+    }
+    return atom;
+  });
+}
+
+/**
  * Generate content atoms for flexible layout system (NEW)
  * Used with Gemini layout selection for dynamic page layouts
  * @param {string} query - User's search query
@@ -461,8 +522,11 @@ export async function generateContentAtoms(query, apiKey, options = {}) {
   try {
     const content = await callClaudeAPI(query, apiKey, CONTENT_ATOMS_PROMPT, ragContext);
 
+    // Post-process content atoms to fix any incorrect URLs
+    const fixedAtoms = fixProductUrls(content.content_atoms || []);
+
     return {
-      contentAtoms: content.content_atoms || [],
+      contentAtoms: fixedAtoms,
       contentType: content.content_type || 'guide',
       metadata: content.metadata || { title: query, description: '', primary_image_prompt: '' },
       keywords: content.keywords || [],

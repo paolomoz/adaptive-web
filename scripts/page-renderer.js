@@ -1634,6 +1634,10 @@ function renderProductDetailBlock(atoms) {
 
   const data = productAtom;
 
+  // Check if image URL is valid (generated) or needs generation
+  const imageUrl = data.image_url || '';
+  const hasImage = imageUrl.startsWith('http') && !imageUrl.includes('vitamix.com');
+
   // Format price helper
   const formatPrice = (price) => {
     if (!price) return 'Price unavailable';
@@ -1645,54 +1649,18 @@ function renderProductDetailBlock(atoms) {
   // Format spec key helper
   const formatSpecKey = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-  // Render stars helper
-  const renderStars = (rating) => {
-    if (!rating) return '';
-    const fullStars = Math.floor(rating);
-    const hasHalf = rating % 1 >= 0.5;
-    let stars = '';
-    for (let i = 0; i < 5; i += 1) {
-      if (i < fullStars) {
-        stars += '<span class="star full">★</span>';
-      } else if (i === fullStars && hasHalf) {
-        stars += '<span class="star half">★</span>';
-      } else {
-        stars += '<span class="star empty">☆</span>';
-      }
-    }
-    return stars;
-  };
-
   // Build the HTML
   const html = `
     <div class="product-detail block" data-block-name="product-detail" data-product='${JSON.stringify(data).replace(/'/g, '&#39;')}'>
       <div class="product-hero">
         <div class="product-gallery">
-          <div class="product-image-main">
-            <img src="${data.image_url || '/icons/placeholder.svg'}" alt="${data.name}" loading="eager">
+          <div class="product-image-main ${hasImage ? '' : 'skeleton'}">
+            ${hasImage ? `<img src="${imageUrl}" alt="${data.name}" loading="eager">` : ''}
           </div>
-          ${data.gallery && data.gallery.length > 1 ? `
-            <div class="product-thumbnails">
-              ${data.gallery.map((img, i) => `
-                <button class="thumbnail ${i === 0 ? 'active' : ''}" data-index="${i}">
-                  <img src="${img}" alt="${data.name} view ${i + 1}">
-                </button>
-              `).join('')}
-            </div>
-          ` : ''}
         </div>
 
         <div class="product-info">
-          <div class="product-meta">
-            ${data.series ? `<span class="product-series">${data.series}</span>` : ''}
-            ${data.rating ? `
-              <div class="product-rating">
-                <span class="stars">${renderStars(data.rating)}</span>
-                <span class="rating-value">${data.rating}</span>
-                ${data.review_count ? `<span class="review-count">(${data.review_count} reviews)</span>` : ''}
-              </div>
-            ` : ''}
-          </div>
+          ${data.series ? `<div class="product-meta"><span class="product-series">${data.series}</span></div>` : ''}
 
           <h1 class="product-title">${data.name}</h1>
 
@@ -1717,7 +1685,6 @@ function renderProductDetailBlock(atoms) {
                 Shop Now
               </a>
             ` : ''}
-            <button class="button secondary compare-btn">Compare Models</button>
           </div>
 
           <div class="product-warranty">
@@ -1797,13 +1764,18 @@ function renderProductDetailBlock(atoms) {
         <div class="product-related-section">
           <h2>You Might Also Like</h2>
           <div class="related-grid">
-            ${data.related_products.map((p) => `
-              <div class="related-product" data-query="${p.name}">
-                <img src="${p.image_url || '/icons/placeholder.svg'}" alt="${p.name}">
+            ${data.related_products.map((p) => {
+              const hasRelatedImage = p.image_url && p.image_url.startsWith('http') && !p.image_url.includes('vitamix.com');
+              return `
+              <div class="related-product" data-query="${p.query || p.name}">
+                <div class="related-product-image ${hasRelatedImage ? '' : 'skeleton'}">
+                  ${hasRelatedImage ? `<img src="${p.image_url}" alt="${p.name}">` : ''}
+                </div>
                 <h3>${p.name}</h3>
-                ${p.price ? `<span class="related-price">${formatPrice(p.price)}</span>` : ''}
+                ${p.description ? `<p class="related-description">${p.description}</p>` : ''}
               </div>
-            `).join('')}
+            `;
+            }).join('')}
           </div>
         </div>
       ` : ''}
@@ -2171,11 +2143,25 @@ export function updatePageImages(pageData, container) {
     // Flexible pipeline: update product_detail images
     const productDetail = pageData.content_atoms?.find((a) => a.type === 'product_detail');
     if (productDetail?.image_url) {
-      const productImg = container.querySelector('.product-image');
+      const productImg = container.querySelector('.product-image-main');
       if (productImg && productImg.classList.contains('skeleton')) {
         productImg.innerHTML = `<img src="${productDetail.image_url}" alt="${productDetail.name || 'Product image'}" loading="eager">`;
         productImg.classList.remove('skeleton');
       }
+    }
+
+    // Flexible pipeline: update related product images
+    if (productDetail?.related_products?.length) {
+      const relatedProducts = container.querySelectorAll('.related-product');
+      productDetail.related_products.forEach((product, index) => {
+        if (product.image_url && relatedProducts[index]) {
+          const imgContainer = relatedProducts[index].querySelector('.related-product-image');
+          if (imgContainer && imgContainer.classList.contains('skeleton')) {
+            imgContainer.innerHTML = `<img src="${product.image_url}" alt="${product.name || 'Related product'}" loading="lazy">`;
+            imgContainer.classList.remove('skeleton');
+          }
+        }
+      });
     }
 
     // Flexible pipeline: update related recipe images

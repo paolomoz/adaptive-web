@@ -268,7 +268,10 @@
 
 /* Nutrition Card in sidebar */
 .nutrition-card {
-  background: white;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
 }
 
 .nutrition-card h3 {
@@ -333,6 +336,13 @@
 }
 
 /* Ingredients */
+.recipe-section.ingredients-section {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 24px;
+}
+
 .ingredients-header {
   display: flex;
   justify-content: space-between;
@@ -396,6 +406,13 @@
 }
 
 /* Directions */
+.recipe-section.directions-section {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 24px;
+}
+
 .directions-list {
   list-style: none;
   padding: 0;
@@ -495,8 +512,10 @@
 
 /* Equipment Card */
 .equipment-card {
-  padding-top: 24px;
-  border-top: 1px solid var(--border-color, #e0e0e0);
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
 }
 
 .equipment-card h3 {

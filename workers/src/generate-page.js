@@ -120,6 +120,19 @@ function extractImagePromptsFromAtoms(contentAtoms, metadata) {
     });
   }
 
+  // Related product images from product_detail atoms
+  if (productDetail?.related_products) {
+    productDetail.related_products.forEach((product, index) => {
+      if (product.image_prompt) {
+        prompts.push({
+          type: 'related_product',
+          index,
+          prompt: product.image_prompt,
+        });
+      }
+    });
+  }
+
   return prompts;
 }
 
@@ -397,8 +410,9 @@ async function generateImagesBackgroundFlexible(pageId, prompts, env) {
     const recipeImage = images.find((img) => img.type === 'recipe');
     const productImage = images.find((img) => img.type === 'product');
     const relatedRecipeImages = images.filter((img) => img.type === 'related_recipe');
+    const relatedProductImages = images.filter((img) => img.type === 'related_product');
 
-    if ((featureImages.length > 0 || comparisonImages.length > 0 || recipeImage || productImage || relatedRecipeImages.length > 0) && page.content_atoms) {
+    if ((featureImages.length > 0 || comparisonImages.length > 0 || recipeImage || productImage || relatedRecipeImages.length > 0 || relatedProductImages.length > 0) && page.content_atoms) {
       updates.content_atoms = page.content_atoms.map((atom) => {
         // Apply feature images to feature_set atoms
         if (atom.type === 'feature_set' && atom.items) {
@@ -434,9 +448,19 @@ async function generateImagesBackgroundFlexible(pageId, prompts, env) {
           }
           return updatedAtom;
         }
-        // Apply product image to product_detail atoms
-        if (atom.type === 'product_detail' && productImage) {
-          return { ...atom, image_url: productImage.url };
+        // Apply product image and related product images to product_detail atoms
+        if (atom.type === 'product_detail') {
+          let updatedAtom = { ...atom };
+          if (productImage) {
+            updatedAtom.image_url = productImage.url;
+          }
+          if (atom.related_products && relatedProductImages.length > 0) {
+            updatedAtom.related_products = atom.related_products.map((product, i) => {
+              const relatedImg = relatedProductImages.find((img) => img.index === i);
+              return relatedImg ? { ...product, image_url: relatedImg.url } : product;
+            });
+          }
+          return updatedAtom;
         }
         return atom;
       });
