@@ -1,5 +1,6 @@
 import { getMetadata } from '../../scripts/aem.js';
 import { loadFragment } from '../fragment/fragment.js';
+import { navigateToQuery } from '../../scripts/router.js';
 
 // media query match that indicates mobile/tablet width
 const isDesktop = window.matchMedia('(min-width: 900px)');
@@ -161,6 +162,49 @@ export default async function decorate(block) {
   // prevent mobile nav behavior on window resize
   toggleMenu(nav, navSections, isDesktop.matches);
   isDesktop.addEventListener('change', () => toggleMenu(nav, navSections, isDesktop.matches));
+
+  // Add search bar to header
+  const searchContainer = document.createElement('div');
+  searchContainer.className = 'nav-search';
+  searchContainer.innerHTML = `
+    <div class="header-search-container">
+      <span class="header-search-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+      </span>
+      <input type="text" placeholder="What would you like to explore?" aria-label="Search query">
+      <button type="submit" disabled>
+        <span>Explore</span>
+      </button>
+    </div>
+  `;
+
+  // Add search interactivity
+  const searchInput = searchContainer.querySelector('input');
+  const searchButton = searchContainer.querySelector('button');
+
+  searchInput.addEventListener('input', () => {
+    searchButton.disabled = !searchInput.value.trim();
+  });
+
+  const handleSearchSubmit = (e) => {
+    e?.preventDefault();
+    const query = searchInput.value.trim();
+    if (query) {
+      searchButton.disabled = true;
+      searchButton.innerHTML = '<span class="loading-dots">...</span>';
+      navigateToQuery(query);
+    }
+  };
+
+  searchButton.addEventListener('click', handleSearchSubmit);
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleSearchSubmit(e);
+  });
+
+  nav.appendChild(searchContainer);
 
   const navWrapper = document.createElement('div');
   navWrapper.className = 'nav-wrapper';

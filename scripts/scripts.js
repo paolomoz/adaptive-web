@@ -455,7 +455,6 @@ async function loadPage() {
 
     // Load block CSS files for adaptive mode
     const blockCSS = [
-      'search-bar',
       'ai-hero',
       'ai-content',
       'feature-cards',

@@ -366,10 +366,6 @@ export async function renderGeneratedPage(pageData, container) {
   // Clear existing content
   container.innerHTML = '';
 
-  // Render search bar
-  const searchSection = renderSearchBar();
-  container.appendChild(searchSection);
-
   // Render hero
   if (pageData.hero) {
     const heroSection = renderAiHero(pageData.hero);
@@ -416,12 +412,6 @@ export async function renderGeneratedPage(pageData, container) {
 export async function renderHomepage(suggestedTopics, container) {
   // Clear existing content
   container.innerHTML = '';
-
-  // Render search bar
-  const searchSection = renderSearchBar({
-    placeholder: 'What would you like to explore?',
-  });
-  container.appendChild(searchSection);
 
   // Hero welcome section
   const welcomeSection = createSection();
@@ -1757,10 +1747,6 @@ const BLOCK_RENDERERS = {
  */
 export async function renderFlexiblePage(pageData, container) {
   container.innerHTML = '';
-
-  // Render search bar first
-  const searchSection = renderSearchBar();
-  container.appendChild(searchSection);
 
   const atoms = pageData.content_atoms || [];
   const blocks = pageData.layout_blocks || [];
