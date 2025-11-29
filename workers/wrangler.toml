@@ -9,15 +9,42 @@ hint = "wnam"
 
 [vars]
 SUPABASE_URL = "https://jdclzklyiosyfyzoxeho.supabase.co"
+# Feature flag: set to "true" to use Cloudflare D1/Vectorize instead of Supabase
+USE_CLOUDFLARE_DB = "true"
 
 # Secrets (set via wrangler secret put):
 # - ANTHROPIC_API_KEY
 # - SUPABASE_SERVICE_KEY
 # - GOOGLE_SERVICE_ACCOUNT_KEY (for Imagen 3)
 # - GOOGLE_CLOUD_PROJECT (for Imagen 3)
-# - OPENAI_API_KEY (for RAG embeddings - optional)
-# - GEMINI_API_KEY (for flexible layout pipeline - enables Gemini block selection)
+# - OPENAI_API_KEY (for RAG embeddings with Vectorize)
 
+# R2 for image storage
 [[r2_buckets]]
 binding = "IMAGES"
 bucket_name = "adaptive-web-images"
+
+# D1 for page storage (replaces Supabase)
+[[d1_databases]]
+binding = "DB"
+database_name = "adaptive-web-db"
+database_id = "407328db-b252-428f-b412-0f902bfd8fdb"
+
+# Vectorize for RAG content embeddings (replaces Supabase pgvector)
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "adaptive-web-vectors"
+
+# Vectorize for image search (semantic image matching)
+[[vectorize]]
+binding = "IMAGE_VECTORS"
+index_name = "adaptive-web-images"
+
+# Workers AI for embeddings (replaces OpenAI)
+[ai]
+binding = "AI"
+
+# KV for RAG caching (reduces latency and API costs)
+[[kv_namespaces]]
+binding = "RAG_CACHE"
+id = "33b3340f7d434c73ba3471b8e5e6fe82"

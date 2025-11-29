@@ -17,7 +17,7 @@ function createSection(className = '') {
 }
 
 /**
- * Render the search bar section
+ * Render the search bar section with autocomplete
  * @param {object} options - Render options
  * @returns {Element} Section element
  */
@@ -29,24 +29,27 @@ export function renderSearchBar(options = {}) {
 
   wrapper.innerHTML = `
     <div class="search-bar block" data-block-name="search-bar">
-      <div class="search-container">
-        <span class="search-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="m21 21-4.35-4.35"></path>
-          </svg>
-        </span>
-        <input type="text" placeholder="${placeholder}" aria-label="Search query">
-        <button type="submit" disabled>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
-            <path d="M20 3v4"></path>
-            <path d="M22 5h-4"></path>
-            <path d="M4 17v2"></path>
-            <path d="M5 18H3"></path>
-          </svg>
-          <span>Explore</span>
-        </button>
+      <div class="search-wrapper">
+        <div class="search-container">
+          <span class="search-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+          </span>
+          <input type="text" placeholder="${placeholder}" aria-label="Search query" autocomplete="off">
+          <button type="submit" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
+              <path d="M20 3v4"></path>
+              <path d="M22 5h-4"></path>
+              <path d="M4 17v2"></path>
+              <path d="M5 18H3"></path>
+            </svg>
+            <span>Explore</span>
+          </button>
+        </div>
+        <div class="search-autocomplete"></div>
       </div>
     </div>
   `;
@@ -54,15 +57,101 @@ export function renderSearchBar(options = {}) {
   // Add interactivity
   const input = wrapper.querySelector('input');
   const button = wrapper.querySelector('button');
+  const autocomplete = wrapper.querySelector('.search-autocomplete');
+
+  let debounceTimer = null;
+  let selectedIndex = -1;
 
   input.addEventListener('input', () => {
     button.disabled = !input.value.trim();
+
+    // Debounced autocomplete
+    clearTimeout(debounceTimer);
+    const query = input.value.trim();
+
+    if (query.length >= 2) {
+      debounceTimer = setTimeout(async () => {
+        try {
+          const { getSuggestions } = await import('./api-client.js');
+          const suggestions = await getSuggestions(query, 6);
+          renderAutocomplete(suggestions);
+        } catch (e) {
+          console.warn('Autocomplete failed:', e);
+        }
+      }, 200);
+    } else {
+      autocomplete.classList.remove('active');
+    }
+  });
+
+  function renderAutocomplete(suggestions) {
+    if (!suggestions.length) {
+      autocomplete.classList.remove('active');
+      return;
+    }
+
+    selectedIndex = -1;
+    autocomplete.innerHTML = suggestions.map((s, i) => `
+      <div class="autocomplete-item" data-index="${i}" data-query="${escapeHtml(s.text)}">
+        <span class="autocomplete-text">${escapeHtml(s.text)}</span>
+        <span class="autocomplete-type ${s.type}">${s.type}</span>
+      </div>
+    `).join('');
+
+    autocomplete.classList.add('active');
+
+    // Add click handlers
+    autocomplete.querySelectorAll('.autocomplete-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const query = item.dataset.query;
+        input.value = query;
+        autocomplete.classList.remove('active');
+        handleSubmit();
+      });
+    });
+  }
+
+  // Keyboard navigation
+  input.addEventListener('keydown', (e) => {
+    const items = autocomplete.querySelectorAll('.autocomplete-item');
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+      updateSelection(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, -1);
+      updateSelection(items);
+    } else if (e.key === 'Enter') {
+      if (selectedIndex >= 0 && items[selectedIndex]) {
+        e.preventDefault();
+        input.value = items[selectedIndex].dataset.query;
+        autocomplete.classList.remove('active');
+      }
+      handleSubmit();
+    } else if (e.key === 'Escape') {
+      autocomplete.classList.remove('active');
+    }
+  });
+
+  function updateSelection(items) {
+    items.forEach((item, i) => {
+      item.classList.toggle('selected', i === selectedIndex);
+    });
+  }
+
+  // Hide autocomplete on blur (with delay for click)
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      autocomplete.classList.remove('active');
+    }, 200);
   });
 
   const handleSubmit = () => {
     const query = input.value.trim();
     if (query) {
-      // Import dynamically to avoid circular dependency
+      autocomplete.classList.remove('active');
       import('./router.js').then(({ navigateToQuery }) => {
         navigateToQuery(query);
       });
@@ -70,11 +159,15 @@ export function renderSearchBar(options = {}) {
   };
 
   button.addEventListener('click', handleSubmit);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleSubmit();
-  });
 
   return section;
+}
+
+// Helper to escape HTML
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[m]));
 }
 
 /**
@@ -509,6 +602,47 @@ export function renderLoading(container) {
 }
 
 /**
+ * Render progress-aware loading state with step indicators and progressive content
+ * @param {Element} container - Container element
+ * @returns {function} Update function to call with progress updates
+ */
+export function renderProgressLoading(container) {
+  container.innerHTML = `
+    <div class="loading-page">
+      <div class="section loading-progress-section">
+        <div>
+          <div class="loading-state loading-spinner">
+            <div class="spinner"></div>
+            <div class="loading-message">Generating...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Return update function
+  return function updateProgress(update) {
+    if (update.status === 'complete') {
+      const loadingMessage = container.querySelector('.loading-message');
+      if (loadingMessage) {
+        loadingMessage.textContent = 'Page ready!';
+      }
+    }
+  };
+}
+
+// Helper to check step order
+function isStepBefore(step, currentStep) {
+  const order = ['rag_search', 'content_generating', 'layout_selecting', 'images_searching', 'images_pending', 'saving', 'complete'];
+  return order.indexOf(step) < order.indexOf(currentStep);
+}
+
+// Helper to capitalize
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
  * Render error state
  * @param {Element} container - Container element
  * @param {string} message - Error message
@@ -822,7 +956,7 @@ function renderComparisonCardsBlock(atoms) {
       <div class="comparison-card" data-index="${index}" data-series="${series}">
         ${smart ? `<div class="card-smart-badge">${wifiIcon} Smart</div>` : ''}
         ${product.best_value ? '<div class="card-value-badge">Best Value</div>' : ''}
-        <div class="card-image">
+        <div class="card-image${product.image_url ? '' : ' skeleton'}">
           ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}">` : ''}
         </div>
         <div class="card-info">
@@ -1423,11 +1557,14 @@ function renderInteractiveGuideBlock(atoms) {
     const prosHtml = (pick.pros || []).map((pro) => `<li>${pro}</li>`).join('');
     const consHtml = (pick.cons || []).map((con) => `<li>${con}</li>`).join('');
 
+    // Only show image if it's a valid URL (not a prompt)
+    const hasValidImage = product.image_url && product.image_url.startsWith('http');
+
     return `
       <div class="guide-product-card ${index === 0 ? 'active' : ''}" data-index="${index}">
-        <div class="guide-product-image">
+        <div class="guide-product-image${!hasValidImage ? ' skeleton' : ''}">
           ${pick.badge ? `<div class="guide-product-badge ${pick.badge_style || ''}">${pick.badge}</div>` : ''}
-          ${product.image_url ? `<img src="${product.image_url}" alt="${product.name}">` : ''}
+          ${hasValidImage ? `<img src="${product.image_url}" alt="${product.name}">` : ''}
         </div>
         <div class="guide-product-details">
           <h3 class="guide-product-name">${product.name}</h3>
@@ -2173,6 +2310,56 @@ export function updatePageImages(pageData, container) {
           if (imgContainer && imgContainer.classList.contains('skeleton')) {
             imgContainer.innerHTML = `<img src="${recipe.image_url}" alt="${recipe.name || 'Related recipe'}" loading="lazy">`;
             imgContainer.classList.remove('skeleton');
+          }
+        }
+      });
+    }
+
+    // Flexible pipeline: update interactive_guide product images
+    const interactiveGuide = pageData.content_atoms?.find((a) => a.type === 'interactive_guide');
+    if (interactiveGuide?.picks?.length) {
+      const productCards = container.querySelectorAll('.guide-product-card');
+      interactiveGuide.picks.forEach((pick, index) => {
+        if (pick.product?.image_url && pick.product.image_url.startsWith('http') && productCards[index]) {
+          const imgDiv = productCards[index].querySelector('.guide-product-image');
+          if (imgDiv) {
+            // Check if image already exists
+            let img = imgDiv.querySelector('img');
+            if (img) {
+              img.src = pick.product.image_url;
+              img.alt = pick.product.name || 'Product image';
+            } else {
+              // Create new img element (skeleton state)
+              img = document.createElement('img');
+              img.src = pick.product.image_url;
+              img.alt = pick.product.name || 'Product image';
+              imgDiv.appendChild(img);
+            }
+            imgDiv.classList.remove('skeleton');
+          }
+        }
+      });
+    }
+
+    // Flexible pipeline: update comparison card images
+    const comparison = pageData.content_atoms?.find((a) => a.type === 'comparison');
+    if (comparison?.items?.length) {
+      const comparisonCards = container.querySelectorAll('.comparison-card');
+      comparison.items.forEach((product, index) => {
+        if (product.image_url && product.image_url.startsWith('http') && comparisonCards[index]) {
+          const imgDiv = comparisonCards[index].querySelector('.card-image');
+          if (imgDiv) {
+            let img = imgDiv.querySelector('img');
+            if (img) {
+              img.src = product.image_url;
+              img.alt = product.name || 'Product image';
+            } else {
+              img = document.createElement('img');
+              img.src = product.image_url;
+              img.alt = product.name || 'Product image';
+              imgDiv.appendChild(img);
+            }
+            imgDiv.classList.remove('skeleton');
           }
         }
       });

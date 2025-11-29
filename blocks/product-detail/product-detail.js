@@ -11,6 +11,18 @@
 export default function decorate(block) {
   block.classList.add('product-detail');
 
+  // Check if block is already rendered by page-renderer (has product-hero child)
+  // Skip re-rendering to avoid flash
+  if (block.querySelector('.product-hero')) {
+    // Already rendered - just setup event handlers
+    const existingData = block.dataset.product ? JSON.parse(block.dataset.product) : null;
+    setupAccordion(block);
+    if (existingData) {
+      setupGallery(block, existingData);
+    }
+    return;
+  }
+
   // Get product data from block's dataset (populated by renderer)
   const data = block.dataset.product ? JSON.parse(block.dataset.product) : null;
 

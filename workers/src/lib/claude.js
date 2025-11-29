@@ -1,7 +1,7 @@
 /**
  * Claude API Integration
- * Generates structured content atoms for AdaptiveWeb pages
- * Content atoms are layout-agnostic content units that Gemini will arrange into blocks
+ * Generates structured content atoms AND layout blocks for AdaptiveWeb pages
+ * Content atoms are layout-agnostic content units, layout_blocks defines how to arrange them
  */
 
 import { retrieveContext } from './rag.js';
@@ -91,7 +91,7 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
         "price": "$629",
         "rating": 4.8,
         "description": "Brief description of product features",
-        "image_prompt": "Modern Vitamix A3500 blender with touchscreen display, brushed stainless steel finish, 64oz container, on clean white kitchen counter with soft natural lighting",
+        "image_url": "COPY THE EXACT Product Image URL FROM RAG CONTEXT for this product",
         "specs": {
           "series": "Ascent",
           "price": "$629",
@@ -109,8 +109,9 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
     // IMPORTANT for comparison: Include ALL Vitamix models in the relevant category
     // For "show all models" type queries, include at minimum: A3500, A2500, A2300, E320, E310, 750, Propel
     // Always use consistent spec keys: series, price, motor, container, warranty, programs, smart, interface
-    // CRITICAL: Each comparison item MUST include an image_prompt for AI image generation
-    // Example image_prompt: "Modern Vitamix [model] blender with [finish], [container size] container, studio product shot on white background"
+    // CRITICAL: Each comparison item MUST include an image_url with the EXACT URL from RAG context
+    // Look for "Product Image URL:" in the RAG data and copy that URL exactly
+    // DO NOT use image_prompt for comparison items - use actual image URLs from the PRODUCT IMAGES section
 
     // For "guide" or "comparison" when user needs help choosing - include interactive_guide:
     // Use this for queries like "best blender for smoothies", "which vitamix should I buy", "help me choose"
@@ -126,6 +127,7 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
           "price": "$549",
           "rating": 4.8,
           "description": "The perfect balance of features and price...",
+          "image_url": "COPY THE EXACT Product Image URL FROM RAG CONTEXT for this product",
           "specs": { "Container": "64 oz", "Warranty": "10 Years", "Motor": "2.2 HP", "Programs": "3 presets" },
           "url": "https://www.vitamix.com/us/en_us/shop/a2500"
         },
@@ -223,8 +225,69 @@ IMPORTANT: Respond with ONLY valid JSON matching this schema:
         { "name": "Green Mango Smoothie", "description": "Add some greens for extra nutrition", "query": "green mango smoothie", "image_prompt": "A green mango smoothie in a glass with spinach leaves and mango slices, vibrant green color" }
       ]
     }
+  ],
+
+  // LAYOUT BLOCKS - Select and order the blocks to display content
+  // You MUST include this array to specify how content should be rendered
+  "layout_blocks": [
+    {
+      "block_type": "hero-banner",
+      "atom_mappings": {
+        "title": "heading.text",
+        "subtitle": "paragraph.text",
+        "image": "metadata.primary_image_prompt"
+      }
+    }
+    // ... more blocks in sequence
   ]
 }
+
+AVAILABLE BLOCKS (use block_type values):
+- hero-banner: Full-width hero section with title, subtitle, and optional image (required for most pages)
+- feature-cards: Grid of 3 feature cards with images, titles, and descriptions (requires feature_set atom)
+- faq-accordion: Expandable FAQ section with questions and answers (requires faq_set atom)
+- cta-section: Call-to-action section with headline, description, and buttons (requires cta atom)
+- related-topics: Grid of related topic cards for continued exploration (requires related atom)
+- text-section: Large text section for detailed explanations (requires paragraph atoms)
+- comparison-cards: Interactive card grid with product images, prices, ratings. Users can select and compare side-by-side. Best for browsing 3+ products (requires comparison atom)
+- comparison-table: Simple horizontal table for quick spec comparison of 2-3 products (requires comparison atom)
+- specs-table: Structured specification table for product details (requires table atom)
+- step-by-step: Numbered step-by-step instructions with optional tips (requires steps atom)
+- bullet-list: Bulleted or numbered list for key points (requires list atom)
+- interactive-guide: Tab-based product selection guide with top 2-4 product picks organized by user intent. Each tab shows detailed product card with specs, pros/cons. Best for helping users choose between curated options (requires interactive_guide atom)
+- product-detail: Comprehensive single product page with hero gallery, specs accordion, features grid. Use ONLY for single_product content type (requires product_detail atom)
+- recipe-detail: Comprehensive single recipe page with hero image, ingredients, steps, nutrition. Use ONLY for single_recipe content type (requires recipe_detail atom)
+
+LAYOUT RULES:
+1. CRITICAL for single_product: Use ONLY the 'product-detail' block. It is comprehensive and standalone - do NOT add other blocks!
+2. CRITICAL for single_recipe: Use ONLY the 'recipe-detail' block. It is comprehensive and standalone - do NOT add other blocks!
+3. For other content types: Always start with 'hero-banner' for the main heading
+4. CRITICAL: If you include an 'interactive_guide' atom, you MUST include the 'interactive-guide' block immediately after hero-banner
+5. Place most important content blocks early in the sequence
+6. End with 'cta-section' followed by 'related-topics'
+7. For recipes (not single_recipe): include 'step-by-step' before the CTA
+8. For products (not single_product): include 'specs-table' to show specifications
+9. When a 'table' atom is present, ALWAYS include either 'comparison-table' or 'specs-table' to render it
+10. For comparisons: prefer 'comparison-cards' for browsing/selecting products
+11. Include 'feature-cards' when feature_set atoms are present
+12. Include 'faq-accordion' when faq_set atoms are present
+13. Maximum 8 blocks per page to maintain focus
+
+ATOM MAPPINGS (use these in atom_mappings):
+- heading.text, heading.level
+- paragraph.text
+- feature_set.items
+- faq_set.items
+- steps.items
+- table.headers, table.rows, table.title
+- comparison.items
+- cta.title, cta.description, cta.buttons
+- related.items
+- list.items, list.style
+- metadata.primary_image_prompt, metadata.title, metadata.description
+- interactive_guide.title, interactive_guide.subtitle, interactive_guide.picks
+- product_detail (for product-detail block)
+- recipe_detail (for recipe-detail block)
 
 GUIDELINES:
 - Determine content_type based on query intent:
@@ -501,19 +564,26 @@ function fixProductUrls(contentAtoms) {
  * @returns {Promise<{contentAtoms: Array, contentType: string, metadata: object, sourceIds: string[], sourceImages: Array}>}
  */
 export async function generateContentAtoms(query, apiKey, options = {}) {
-  const { supabase, openaiApiKey } = options;
+  const { supabase, ai, env } = options;
 
   // RAG: Retrieve relevant context if configured
   let ragContext = '';
   let sourceIds = [];
   let sourceImages = [];
+  let classification = null;
+  let ragCached = false;
 
-  if (supabase && openaiApiKey) {
+  if (supabase && ai) {
     try {
-      const ragResult = await retrieveContext(query, openaiApiKey, supabase);
+      const ragResult = await retrieveContext(query, ai, supabase, {}, env);
       ragContext = ragResult.context;
       sourceIds = ragResult.sourceIds;
       sourceImages = ragResult.sourceImages || [];
+      classification = ragResult.classification || null;
+      ragCached = ragResult.cached || false;
+      if (ragCached) {
+        console.log('RAG: Using cached result');
+      }
     } catch (ragError) {
       console.error('RAG retrieval failed, continuing without context:', ragError);
     }
@@ -530,8 +600,10 @@ export async function generateContentAtoms(query, apiKey, options = {}) {
       contentType: content.content_type || 'guide',
       metadata: content.metadata || { title: query, description: '', primary_image_prompt: '' },
       keywords: content.keywords || [],
+      layoutBlocks: content.layout_blocks || null, // New: layout blocks from Claude
       sourceIds,
       sourceImages,
+      classification, // Query classification from RAG
     };
   } catch (parseError) {
     console.error('Failed to parse Claude content atoms response:', parseError);
@@ -550,19 +622,22 @@ export async function generateContentAtoms(query, apiKey, options = {}) {
  * @returns {Promise<{content: object, sourceIds: string[], sourceImages: Array}>} Parsed content, source IDs, and images
  */
 export async function generateContent(query, apiKey, options = {}) {
-  const { supabase, openaiApiKey } = options;
+  const { supabase, ai, env } = options;
 
   // RAG: Retrieve relevant context if configured
   let ragContext = '';
   let sourceIds = [];
   let sourceImages = [];
 
-  if (supabase && openaiApiKey) {
+  if (supabase && ai) {
     try {
-      const ragResult = await retrieveContext(query, openaiApiKey, supabase);
+      const ragResult = await retrieveContext(query, ai, supabase, {}, env);
       ragContext = ragResult.context;
       sourceIds = ragResult.sourceIds;
       sourceImages = ragResult.sourceImages || [];
+      if (ragResult.cached) {
+        console.log('RAG: Using cached result');
+      }
     } catch (ragError) {
       console.error('RAG retrieval failed, continuing without context:', ragError);
     }

@@ -11,6 +11,15 @@
 export default function decorate(block) {
   block.classList.add('recipe-detail');
 
+  // Check if block is already rendered by page-renderer (has recipe-hero child)
+  // Skip re-rendering to avoid flash
+  if (block.querySelector('.recipe-hero')) {
+    // Already rendered - just setup event handlers
+    setupRelatedRecipeLinks(block);
+    setupTabs(block);
+    return;
+  }
+
   // Get recipe data from block's dataset (populated by renderer)
   const data = block.dataset.recipe ? JSON.parse(block.dataset.recipe) : null;
 

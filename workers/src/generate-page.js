@@ -4,13 +4,30 @@
  *
  * Supports two pipelines:
  * 1. Legacy (default): Claude generates fixed-layout content
- * 2. Flexible: Claude → Gemini → Imagen (multi-model pipeline with dynamic layouts)
+ * 2. Flexible: Claude → Imagen (Claude generates content + layout, Imagen for images)
  */
 
 import { generateContent, generateContentAtoms } from './lib/claude.js';
-import { selectBlockLayout } from './lib/gemini.js';
-import { createClient } from './lib/supabase.js';
+import { getFallbackLayout } from './lib/gemini.js';
+import { createClient as createSupabaseClient } from './lib/supabase.js';
+import { createClient as createCloudflareClient } from './lib/cloudflare-db.js';
 import { generateImages as generateImagenImages } from './lib/imagen.js';
+import { determineImageStrategy, findMatchingImages, applyMatchedImages } from './lib/hybrid-images.js';
+
+/**
+ * Get the appropriate database client based on feature flag
+ * @param {object} env - Worker environment
+ * @returns {object} Database client (Supabase or Cloudflare D1)
+ */
+function getDbClient(env) {
+  const useCloudflare = env.USE_CLOUDFLARE_DB === 'true';
+  if (useCloudflare) {
+    console.log('Using Cloudflare D1/Vectorize backend');
+    return createCloudflareClient(env);
+  }
+  console.log('Using Supabase backend');
+  return createSupabaseClient(env);
+}
 
 /**
  * Extract image prompts from legacy content structure
@@ -128,6 +145,21 @@ function extractImagePromptsFromAtoms(contentAtoms, metadata) {
           type: 'related_product',
           index,
           prompt: product.image_prompt,
+        });
+      }
+    });
+  }
+
+  // Interactive guide product images
+  const interactiveGuide = contentAtoms.find((a) => a.type === 'interactive_guide');
+  if (interactiveGuide?.picks) {
+    interactiveGuide.picks.forEach((pick, index) => {
+      if (pick.product?.image_url && !pick.product.image_url.startsWith('http')) {
+        // image_url contains a prompt if it doesn't start with http
+        prompts.push({
+          type: 'guide_product',
+          index,
+          prompt: pick.product.image_url,
         });
       }
     });
@@ -284,7 +316,7 @@ function applySourceImagesToFlexiblePageData(pageData, sourceImages) {
  */
 async function updatePageWithSourceImages(pageId, sourceImages, env) {
   try {
-    const supabase = createClient(env);
+    const supabase = getDbClient(env);
 
     // Flatten all available images from sources
     const allImages = [];
@@ -326,7 +358,7 @@ async function updatePageWithSourceImages(pageId, sourceImages, env) {
  */
 async function generateImagesBackground(pageId, prompts, env) {
   try {
-    const supabase = createClient(env);
+    const supabase = getDbClient(env);
 
     // Generate images with Imagen 3 (via Vertex AI)
     const images = await generateImagenImages(
@@ -382,7 +414,7 @@ async function generateImagesBackground(pageId, prompts, env) {
  */
 async function generateImagesBackgroundFlexible(pageId, prompts, env) {
   try {
-    const supabase = createClient(env);
+    const supabase = getDbClient(env);
 
     // Generate images with Imagen 3 (via Vertex AI)
     const images = await generateImagenImages(
@@ -411,8 +443,9 @@ async function generateImagesBackgroundFlexible(pageId, prompts, env) {
     const productImage = images.find((img) => img.type === 'product');
     const relatedRecipeImages = images.filter((img) => img.type === 'related_recipe');
     const relatedProductImages = images.filter((img) => img.type === 'related_product');
+    const guideProductImages = images.filter((img) => img.type === 'guide_product');
 
-    if ((featureImages.length > 0 || comparisonImages.length > 0 || recipeImage || productImage || relatedRecipeImages.length > 0 || relatedProductImages.length > 0) && page.content_atoms) {
+    if ((featureImages.length > 0 || comparisonImages.length > 0 || recipeImage || productImage || relatedRecipeImages.length > 0 || relatedProductImages.length > 0 || guideProductImages.length > 0) && page.content_atoms) {
       updates.content_atoms = page.content_atoms.map((atom) => {
         // Apply feature images to feature_set atoms
         if (atom.type === 'feature_set' && atom.items) {
@@ -462,6 +495,22 @@ async function generateImagesBackgroundFlexible(pageId, prompts, env) {
           }
           return updatedAtom;
         }
+        // Apply guide product images to interactive_guide atoms
+        if (atom.type === 'interactive_guide' && atom.picks && guideProductImages.length > 0) {
+          return {
+            ...atom,
+            picks: atom.picks.map((pick, i) => {
+              const guideImg = guideProductImages.find((img) => img.index === i);
+              if (guideImg && pick.product) {
+                return {
+                  ...pick,
+                  product: { ...pick.product, image_url: guideImg.url },
+                };
+              }
+              return pick;
+            }),
+          };
+        }
         return atom;
       });
     }
@@ -500,26 +549,30 @@ async function getCachedPage(query, supabase) {
 async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
   console.log('Using flexible multi-model pipeline');
 
-  // Step 1: Claude generates content atoms with RAG
-  const ragOptions = env.OPENAI_API_KEY
-    ? { supabase, openaiApiKey: env.OPENAI_API_KEY }
-    : {};
+  // Step 1: Claude generates content atoms with RAG (using Workers AI for embeddings)
+  const ragOptions = env.AI
+    ? { supabase, ai: env.AI, env }
+    : { env };
 
   const claudeResult = await generateContentAtoms(query, env.ANTHROPIC_API_KEY, ragOptions);
-  const { contentAtoms, contentType, metadata, keywords, sourceIds, sourceImages } = claudeResult;
+  const { contentAtoms, contentType, metadata, keywords, layoutBlocks, sourceIds, sourceImages, classification } = claudeResult;
 
   console.log(`Claude generated ${contentAtoms.length} content atoms (type: ${contentType})`);
+  if (classification) {
+    console.log(`Query classification: ${classification.type} (confidence: ${(classification.confidence * 100).toFixed(0)}%)`);
+  }
 
-  // Step 2: Gemini selects optimal block layout
+  // Step 2: Use Claude's layout selection (or fallback if invalid)
   let layoutResult;
-  try {
-    layoutResult = await selectBlockLayout(contentAtoms, contentType, metadata, env.GEMINI_API_KEY, query);
-    console.log(`Gemini selected layout: ${layoutResult.blocks.map((b) => b.block_type).join(', ')}`);
-  } catch (geminiError) {
-    console.error('Gemini layout selection failed, using fallback:', geminiError);
-    // Use fallback layout when Gemini fails
-    const { getFallbackLayout } = await import('./lib/gemini.js');
+  const isValidLayout = layoutBlocks && Array.isArray(layoutBlocks) && layoutBlocks.length > 0;
+
+  if (isValidLayout) {
+    layoutResult = { blocks: layoutBlocks };
+    console.log(`Claude selected layout: ${layoutBlocks.map((b) => b.block_type).join(', ')}`);
+  } else {
+    console.log('Claude layout missing or invalid, using fallback');
     layoutResult = getFallbackLayout(contentType, contentAtoms);
+    console.log(`Fallback layout: ${layoutResult.blocks.map((b) => b.block_type).join(', ')}`);
   }
 
   // Post-process: If query contains "table" and we have comparison data, ensure table block is included
@@ -561,17 +614,52 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
     rag_source_ids: sourceIds.length > 0 ? sourceIds : null,
   };
 
+  // Step 3: Hybrid image strategy - use RAG images where possible, generate the rest
+  let remainingPrompts = [];
+
+  if (env.IMAGE_VECTORS && classification) {
+    // Determine image strategy based on classification
+    const imageStrategy = determineImageStrategy(classification, contentAtoms, metadata);
+    console.log(`Image strategy: hero=${imageStrategy.hero}, features=${imageStrategy.features}`);
+
+    // Find matching images from RAG using semantic search
+    const matchedImages = await findMatchingImages(contentAtoms, metadata, classification, env);
+    const ragImageCount = [
+      matchedImages.hero,
+      ...matchedImages.features,
+      ...matchedImages.comparison,
+      ...matchedImages.guide,
+      matchedImages.recipe,
+      matchedImages.product,
+    ].filter(Boolean).length;
+    console.log(`Found ${ragImageCount} matching RAG images`);
+
+    // Apply matched images to page data
+    const result = applyMatchedImages(pageData, matchedImages, imageStrategy);
+    pageData = result.pageData;
+    remainingPrompts = result.remainingPrompts;
+
+    if (remainingPrompts.length > 0) {
+      console.log(`Will generate ${remainingPrompts.length} images with Imagen (RAG didn't cover all)`);
+    } else if (ragImageCount > 0) {
+      console.log(`All images from RAG - no Imagen generation needed`);
+      pageData.images_ready = true;
+    }
+  } else {
+    // Fallback: extract all prompts for Imagen generation
+    remainingPrompts = extractImagePromptsFromAtoms(contentAtoms, metadata);
+  }
+
   // Save to database
   const page = await supabase.insertPage(pageData);
 
   // Add to search history
   await supabase.addHistory(sessionId, query, page.id);
 
-  // Step 3: Always generate images with Imagen 3 (AI-generated images are better quality)
-  const imagePrompts = extractImagePromptsFromAtoms(contentAtoms, metadata);
-  if (imagePrompts.length > 0) {
-    ctx.waitUntil(generateImagesBackgroundFlexible(page.id, imagePrompts, env));
-    console.log(`Queued ${imagePrompts.length} images for Imagen 3 generation`);
+  // Generate remaining images with Imagen 3 (if any)
+  if (remainingPrompts.length > 0) {
+    ctx.waitUntil(generateImagesBackgroundFlexible(page.id, remainingPrompts, env));
+    console.log(`Queued ${remainingPrompts.length} images for Imagen 3 generation`);
   }
 
   return {
@@ -587,10 +675,10 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
 async function generatePageLegacy(query, sessionId, supabase, env, ctx) {
   console.log('Using legacy fixed-layout pipeline');
 
-  // Generate content with Claude (with RAG if OPENAI_API_KEY is configured)
-  const ragOptions = env.OPENAI_API_KEY
-    ? { supabase, openaiApiKey: env.OPENAI_API_KEY }
-    : {};
+  // Generate content with Claude (with RAG using Workers AI for embeddings)
+  const ragOptions = env.AI
+    ? { supabase, ai: env.AI, env }
+    : { env };
   const { content, sourceIds, sourceImages } = await generateContent(query, env.ANTHROPIC_API_KEY, ragOptions);
 
   // Prepare page data for database
@@ -646,7 +734,7 @@ export async function generatePage(body, env, ctx) {
     throw new Error('Session ID is required');
   }
 
-  const supabase = createClient(env);
+  const supabase = getDbClient(env);
   const normalizedQuery = normalizeQuery(query);
 
   // Check for cached page (24-hour TTL)

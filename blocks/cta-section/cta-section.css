@@ -1,16 +1,21 @@
 /* CTA Section Block Styles - Full Width */
 
-.cta-section {
+/* Override the parent section.highlight styles */
+.section.highlight:has(.cta-section) {
   background-color: var(--color-secondary);
+  padding: 0;
+}
+
+.section.highlight:has(.cta-section) > div {
+  max-width: none;
+  padding: 0;
+}
+
+.cta-section {
   color: white;
   padding: 60px 24px;
-  width: 100vw;
-  position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
   text-align: center;
+  box-sizing: border-box;
 }
 
 @media (width >= 900px) {

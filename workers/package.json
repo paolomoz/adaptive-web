@@ -12,6 +12,8 @@
     "wrangler": "^3.0.0"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.84.0"
+    "@supabase/supabase-js": "^2.84.0",
+    "jsdom": "^27.2.0",
+    "uuid": "^13.0.0"
   }
 }

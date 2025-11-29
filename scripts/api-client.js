@@ -50,7 +50,7 @@ async function apiRequest(endpoint, options = {}) {
 }
 
 /**
- * Generate a new page from a query
+ * Generate a new page from a query with streaming progress
  * @param {string} query - User's search query
  * @param {function} onProgress - Optional callback for progress updates
  * @returns {Promise<object>} Generated page data with ID
@@ -58,8 +58,12 @@ async function apiRequest(endpoint, options = {}) {
 export async function generatePage(query, onProgress = null) {
   const sessionId = getSessionId();
 
-  if (onProgress) onProgress({ status: 'generating', message: 'Generating content...' });
+  // Use streaming endpoint if onProgress callback is provided
+  if (onProgress) {
+    return generatePageWithStream(query, sessionId, onProgress);
+  }
 
+  // Fallback to non-streaming endpoint
   const data = await apiRequest('/api/generate-page', {
     method: 'POST',
     body: JSON.stringify({
@@ -68,12 +72,148 @@ export async function generatePage(query, onProgress = null) {
     }),
   });
 
-  // Add to history
   await addToHistory(query, data.id);
-
-  if (onProgress) onProgress({ status: 'complete', message: 'Content ready!' });
-
   return data;
+}
+
+/**
+ * Generate page using SSE streaming for real-time progress
+ * @param {string} query - User's search query
+ * @param {string} sessionId - Session ID
+ * @param {function} onProgress - Callback for progress updates
+ * @returns {Promise<object>} Generated page data
+ */
+async function generatePageWithStream(query, sessionId, onProgress) {
+  const url = `${API_BASE_URL}/api/generate-page-stream`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, session_id: sessionId }),
+  });
+
+  if (!response.ok) {
+    throw new APIError('Stream request failed', response.status);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let pageData = null;
+  let currentEvent = null;
+  let currentData = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Parse SSE events from buffer - handle double newline as event separator
+    while (buffer.includes('\n\n')) {
+      const eventEnd = buffer.indexOf('\n\n');
+      const eventBlock = buffer.slice(0, eventEnd);
+      buffer = buffer.slice(eventEnd + 2);
+
+      // Parse the event block
+      const lines = eventBlock.split('\n');
+      let eventType = null;
+      let eventData = '';
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim();
+        } else if (line.startsWith('data: ')) {
+          eventData += line.slice(6);
+        }
+      }
+
+      if (!eventType || !eventData) continue;
+
+      try {
+        const data = JSON.parse(eventData);
+
+        // Handle different event types
+        switch (eventType) {
+          case 'progress':
+            onProgress({
+              status: 'progress',
+              step: data.step,
+              message: data.message,
+              percent: data.percent,
+            });
+            break;
+          case 'classification':
+            onProgress({
+              status: 'classification',
+              type: data.type,
+              confidence: data.confidence,
+              sourcesFound: data.sourcesFound,
+            });
+            break;
+          case 'content_preview':
+            onProgress({
+              status: 'preview',
+              title: data.title,
+              description: data.description,
+              contentType: data.contentType,
+            });
+            break;
+          case 'images_found':
+            onProgress({
+              status: 'images',
+              ragImages: data.ragImages,
+              strategy: data.strategy,
+            });
+            break;
+          case 'content_hero':
+            onProgress({
+              status: 'content_hero',
+              title: data.title,
+              subtitle: data.subtitle,
+              image_prompt: data.image_prompt,
+            });
+            break;
+          case 'content_hero_image':
+            onProgress({
+              status: 'content_hero_image',
+              image_url: data.image_url,
+            });
+            break;
+          case 'content_features':
+            onProgress({
+              status: 'content_features',
+              items: data.items,
+            });
+            break;
+          case 'content_related':
+            onProgress({
+              status: 'content_related',
+              items: data.items,
+            });
+            break;
+          case 'complete':
+            pageData = data;
+            onProgress({ status: 'complete', message: 'Page ready!' });
+            break;
+          case 'error':
+            throw new APIError(data.message || 'Generation failed', 500);
+        }
+      } catch (e) {
+        if (e instanceof APIError) throw e;
+        console.warn('Failed to parse SSE event:', eventType, eventData);
+      }
+    }
+  }
+
+  if (!pageData) {
+    throw new APIError('No page data received from stream', 500);
+  }
+
+  // Add to history
+  await addToHistory(query, pageData.id);
+
+  return pageData;
 }
 
 /**
@@ -83,6 +223,20 @@ export async function generatePage(query, onProgress = null) {
  */
 export async function getPage(pageId) {
   return apiRequest(`/api/get-page?id=${encodeURIComponent(pageId)}`);
+}
+
+/**
+ * Get search suggestions based on query
+ * @param {string} query - Partial search query
+ * @param {number} limit - Max suggestions to return
+ * @returns {Promise<Array>} Suggestions
+ */
+export async function getSuggestions(query = '', limit = 8) {
+  const params = new URLSearchParams();
+  if (query) params.set('q', query);
+  params.set('limit', limit.toString());
+  const data = await apiRequest(`/api/suggestions?${params.toString()}`);
+  return data.suggestions || [];
 }
 
 /**

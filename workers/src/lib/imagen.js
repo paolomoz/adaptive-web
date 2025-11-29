@@ -95,27 +95,26 @@ async function getAccessToken(serviceAccountJson) {
 }
 
 /**
- * Enhance prompt for Vitamix food photography
+ * Enhance prompt for food photography
  * @param {string} prompt - Original prompt
  * @param {string} type - Image type ('hero', 'feature', or 'comparison')
  * @returns {string} Enhanced prompt
  */
 function enhancePrompt(prompt, type) {
-  const promptLower = prompt.toLowerCase();
-  const isBlenderRelated = promptLower.includes('blender')
-    || promptLower.includes('vitamix')
-    || promptLower.includes('machine')
-    || promptLower.includes('appliance');
+  // Remove any Vitamix or blender references from the prompt
+  const cleanedPrompt = prompt
+    .replace(/vitamix/gi, '')
+    .replace(/blender/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-  // Comparison images are product shots - use product photography style
+  // Comparison images are product shots - use product photography style (no appliances)
   if (type === 'comparison') {
-    return `Professional product photography: ${prompt}. Clean white or light gray studio background, professional lighting with soft shadows, high-resolution product shot. Modern, premium feel. No text or watermarks.`;
+    return `Professional product photography: ${cleanedPrompt}. Clean white or light gray studio background, professional lighting with soft shadows, high-resolution shot. Modern, premium feel. No text, watermarks, or kitchen appliances.`;
   }
 
-  if (type === 'hero' || isBlenderRelated) {
-    return `Professional food photography: ${prompt}. Modern Vitamix blender prominently featured in frame. High-quality, well-lit modern kitchen setting, clean composition, shallow depth of field. Appetizing and aspirational.`;
-  }
-  return `Professional food photography: ${prompt}. High-quality, appetizing composition with beautiful lighting. Fresh ingredients, vibrant colors, clean modern presentation. Shallow depth of field.`;
+  // All images: focus on food, no blenders or appliances
+  return `Professional food photography: ${cleanedPrompt}. High-quality, appetizing composition with beautiful lighting. Fresh ingredients, vibrant colors, clean modern presentation. Shallow depth of field. Do not include any blenders, kitchen appliances, or Vitamix products.`;
 }
 
 /**
@@ -214,14 +213,14 @@ async function generateFallbackImage(accessToken, projectId, r2Bucket, pageId, o
   const { type = 'feature', index } = options;
   const aspectRatio = type === 'hero' ? '16:9' : '4:3';
 
-  // Safe generic prompts that won't trigger content filters
+  // Safe generic prompts that won't trigger content filters - no appliances
   let fallbackPrompt;
   if (type === 'hero') {
-    fallbackPrompt = 'Professional food photography: Fresh colorful fruits and vegetables arranged beautifully on a clean white marble counter. Modern Vitamix blender in background. Bright natural lighting, appetizing composition.';
+    fallbackPrompt = 'Professional food photography: Fresh colorful fruits and vegetables arranged beautifully on a clean white marble counter. Bright natural lighting, appetizing composition. No kitchen appliances.';
   } else if (type === 'comparison') {
-    fallbackPrompt = 'Professional product photography: Modern high-end blender with sleek design, brushed stainless steel finish, 64oz container. Clean white studio background, professional lighting with soft shadows. Premium kitchen appliance product shot.';
+    fallbackPrompt = 'Professional food photography: Fresh healthy smoothie in a glass with colorful fruits and ingredients around it. Clean white studio background, professional lighting with soft shadows. No kitchen appliances.';
   } else {
-    fallbackPrompt = 'Professional food photography: Fresh healthy ingredients including berries, leafy greens, and citrus fruits. Clean modern kitchen setting with soft natural lighting. Appetizing and vibrant colors.';
+    fallbackPrompt = 'Professional food photography: Fresh healthy ingredients including berries, leafy greens, and citrus fruits. Clean modern presentation with soft natural lighting. Appetizing and vibrant colors. No kitchen appliances.';
   }
 
   console.log(`Generating fallback image for ${type}${index !== undefined ? `-${index}` : ''}`);
