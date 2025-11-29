@@ -226,6 +226,41 @@ export async function findMatchingImages(contentAtoms, metadata, classification,
       }
       matches.product = bestMatch;
     }
+
+    // Search for related products images
+    if (productDetail.related_products?.length > 0) {
+      matches.relatedProducts = [];
+      for (const relatedProduct of productDetail.related_products) {
+        const rpName = relatedProduct.name || '';
+        const rpModelMatch = rpName.match(/([AaEe]?\d{3,4})/);
+        const rpModelNumber = rpModelMatch ? rpModelMatch[1].toUpperCase() : null;
+
+        let rpSearchQuery = rpName;
+        if (rpModelNumber) {
+          rpSearchQuery = rpModelNumber;
+        }
+
+        if (rpSearchQuery) {
+          const rpImages = await searchImages(rpSearchQuery, env, {
+            limit: 3,
+            threshold: 0.4,
+          });
+
+          let rpBestMatch = rpImages[0] || null;
+          if (rpModelNumber && rpImages.length > 1) {
+            const rpExactMatch = rpImages.find((img) =>
+              img.alt?.toUpperCase().includes(rpModelNumber)
+            );
+            if (rpExactMatch) {
+              rpBestMatch = rpExactMatch;
+            }
+          }
+          matches.relatedProducts.push(rpBestMatch);
+        } else {
+          matches.relatedProducts.push(null);
+        }
+      }
+    }
   }
 
   return matches;
@@ -355,6 +390,9 @@ export function applyMatchedImages(pageData, matches, strategy) {
 
       // Handle product_detail atoms
       if (atom.type === 'product_detail') {
+        let updatedAtom = { ...atom };
+
+        // Apply main product image
         if (matches.product) {
           // Also update metadata with product image for hero display
           if (modifiedData.metadata) {
@@ -363,14 +401,26 @@ export function applyMatchedImages(pageData, matches, strategy) {
               image_url: matches.product.url,
             };
           }
-          return { ...atom, image_url: matches.product.url };
+          updatedAtom.image_url = matches.product.url;
         } else if (atom.image_url && !atom.image_url.startsWith('http')) {
           remainingPrompts.push({
             type: 'product',
             prompt: atom.image_url,
           });
         }
-        return atom;
+
+        // Apply related products images
+        if (atom.related_products?.length > 0 && matches.relatedProducts?.length > 0) {
+          updatedAtom.related_products = atom.related_products.map((rp, i) => {
+            const matchedImage = matches.relatedProducts[i];
+            if (matchedImage) {
+              return { ...rp, image_url: matchedImage.url };
+            }
+            return rp;
+          });
+        }
+
+        return updatedAtom;
       }
 
       return atom;
@@ -382,6 +432,7 @@ export function applyMatchedImages(pageData, matches, strategy) {
     matches.features.some(Boolean) ||
     matches.comparison.some(Boolean) ||
     matches.guide.some(Boolean) ||
+    matches.relatedProducts?.some(Boolean) ||
     matches.recipe ||
     matches.product;
 
