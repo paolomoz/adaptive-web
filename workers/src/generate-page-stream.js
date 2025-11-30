@@ -9,6 +9,43 @@ import { createClient as createCloudflareClient } from './lib/cloudflare-db.js';
 import { determineImageStrategy, findMatchingImages, applyMatchedImages } from './lib/hybrid-images.js';
 
 /**
+ * Timing tracker for monitoring generation performance
+ */
+class TimingTracker {
+  constructor() {
+    this.startTime = Date.now();
+    this.phases = {};
+    this.currentPhase = null;
+    this.phaseStart = null;
+  }
+
+  startPhase(name) {
+    if (this.currentPhase && this.phaseStart) {
+      this.phases[this.currentPhase] = Date.now() - this.phaseStart;
+    }
+    this.currentPhase = name;
+    this.phaseStart = Date.now();
+  }
+
+  endPhase() {
+    if (this.currentPhase && this.phaseStart) {
+      this.phases[this.currentPhase] = Date.now() - this.phaseStart;
+      this.currentPhase = null;
+      this.phaseStart = null;
+    }
+  }
+
+  getTimings(extras = {}) {
+    this.endPhase();
+    return {
+      total_ms: Date.now() - this.startTime,
+      phases: this.phases,
+      ...extras,
+    };
+  }
+}
+
+/**
  * Create SSE-formatted message
  */
 function sseMessage(event, data) {
@@ -40,6 +77,7 @@ export function generatePageStream(body, env, ctx) {
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
+      const timing = new TimingTracker();
 
       const send = (event, data) => {
         controller.enqueue(encoder.encode(sseMessage(event, data)));
@@ -47,6 +85,7 @@ export function generatePageStream(body, env, ctx) {
 
       try {
         // Initialize DB client
+        timing.startPhase('cache_check');
         const supabase = createCloudflareClient(env);
 
         // Check cache first - return existing page immediately if found
@@ -89,6 +128,7 @@ export function generatePageStream(body, env, ctx) {
                 percent: 90
               });
 
+              updatedPage.timings = timing.getTimings({ cache_hit: true, images_refreshed: true });
               send('complete', updatedPage);
               controller.close();
               return;
@@ -105,12 +145,14 @@ export function generatePageStream(body, env, ctx) {
             percent: 90
           });
 
+          existingPage.timings = timing.getTimings({ cache_hit: true });
           send('complete', existingPage);
           controller.close();
           return;
         }
 
         // Step 1: RAG Search
+        timing.startPhase('content_generation');
         send('progress', {
           step: 'rag_search',
           message: 'Searching knowledge base...',
@@ -129,7 +171,7 @@ export function generatePageStream(body, env, ctx) {
         });
 
         const claudeResult = await generateContentAtoms(query, env.ANTHROPIC_API_KEY, ragOptions);
-        const { contentAtoms, contentType, metadata, keywords, layoutBlocks, sourceIds, sourceImages, classification } = claudeResult;
+        const { contentAtoms, contentType, metadata, keywords, layoutBlocks, sourceIds, sourceImages, classification, timings: ragTimings } = claudeResult;
 
         // Send classification info
         send('classification', {
@@ -154,6 +196,7 @@ export function generatePageStream(body, env, ctx) {
           image_prompt: metadata?.primary_image_prompt || null,
         });
 
+        timing.startPhase('layout_selection');
         send('progress', {
           step: 'layout_selecting',
           message: 'Selecting layout...',
@@ -204,6 +247,7 @@ export function generatePageStream(body, env, ctx) {
           rag_source_ids: sourceIds.length > 0 ? sourceIds : null,
         };
 
+        timing.startPhase('image_search');
         send('progress', {
           step: 'images_searching',
           message: 'Finding images...',
@@ -212,12 +256,13 @@ export function generatePageStream(body, env, ctx) {
 
         // Step 4: Hybrid image strategy
         let remainingPrompts = [];
+        let ragImageCount = 0;
 
         if (env.IMAGE_VECTORS && classification) {
           const imageStrategy = determineImageStrategy(classification, contentAtoms, metadata);
           const matchedImages = await findMatchingImages(contentAtoms, metadata, classification, env);
 
-          const ragImageCount = [
+          ragImageCount = [
             matchedImages.hero,
             ...matchedImages.features,
             ...matchedImages.comparison,
@@ -242,12 +287,13 @@ export function generatePageStream(body, env, ctx) {
             });
           }
 
-          // Stream features with images as they're matched
+          // Stream features with images - only use RAG images if strategy allows
           const featureSet = contentAtoms.find(a => a.type === 'feature_set');
           if (featureSet?.items) {
+            const useRagForFeatures = imageStrategy.features === 'rag' || imageStrategy.features === 'rag_or_generate';
             const featuresWithImages = featureSet.items.map((item, i) => ({
               ...item,
-              image_url: matchedImages.features[i]?.url || null,
+              image_url: useRagForFeatures ? (matchedImages.features[i]?.url || null) : null,
             }));
             send('content_features', {
               items: featuresWithImages,
@@ -280,6 +326,7 @@ export function generatePageStream(body, env, ctx) {
           pageData.images_ready = true;
         }
 
+        timing.startPhase('database_save');
         send('progress', {
           step: 'saving',
           message: 'Saving page...',
@@ -299,7 +346,19 @@ export function generatePageStream(body, env, ctx) {
           percent: 100
         });
 
-        // Send final page data
+        // Build timing report
+        const timings = timing.getTimings({
+          cache_hit: false,
+          images_from_rag: ragImageCount,
+          images_to_generate: remainingPrompts.length,
+          rag_sources: sourceIds.length,
+          ...(ragTimings && { rag: ragTimings }),
+        });
+
+        console.log(`Stream timing: ${JSON.stringify(timings)}`);
+
+        // Send final page data with timings
+        pageData.timings = timings;
         send('complete', pageData);
 
       } catch (error) {

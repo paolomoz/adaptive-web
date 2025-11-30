@@ -7,7 +7,7 @@
 import { retrieveContext } from './rag.js';
 
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-sonnet-4-20250514';
+const MODEL = 'claude-haiku-4-5-20251001';
 
 /**
  * System prompt for content atoms generation
@@ -465,7 +465,7 @@ Remember to respond with ONLY valid JSON matching the schema. No explanations or
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: [
         {
           type: 'text',
@@ -508,7 +508,13 @@ Remember to respond with ONLY valid JSON matching the schema. No explanations or
   }
   jsonText = jsonText.trim();
 
-  return JSON.parse(jsonText);
+  try {
+    return JSON.parse(jsonText);
+  } catch (parseError) {
+    console.error('JSON parse error. Raw response (first 1000 chars):', jsonText.slice(0, 1000));
+    console.error('Response length:', jsonText.length);
+    throw parseError;
+  }
 }
 
 /**
@@ -561,10 +567,11 @@ function fixProductUrls(contentAtoms) {
  * @param {string} query - User's search query
  * @param {string} apiKey - Anthropic API key
  * @param {object} options - Optional RAG options
- * @returns {Promise<{contentAtoms: Array, contentType: string, metadata: object, sourceIds: string[], sourceImages: Array}>}
+ * @returns {Promise<{contentAtoms: Array, contentType: string, metadata: object, sourceIds: string[], sourceImages: Array, timings: object}>}
  */
 export async function generateContentAtoms(query, apiKey, options = {}) {
   const { supabase, ai, env } = options;
+  const timings = {};
 
   // RAG: Retrieve relevant context if configured
   let ragContext = '';
@@ -575,12 +582,16 @@ export async function generateContentAtoms(query, apiKey, options = {}) {
 
   if (supabase && ai) {
     try {
+      const ragStart = Date.now();
       const ragResult = await retrieveContext(query, ai, supabase, {}, env);
+      timings.rag_retrieval = Date.now() - ragStart;
+
       ragContext = ragResult.context;
       sourceIds = ragResult.sourceIds;
       sourceImages = ragResult.sourceImages || [];
       classification = ragResult.classification || null;
       ragCached = ragResult.cached || false;
+      timings.rag_cached = ragCached;
       if (ragCached) {
         console.log('RAG: Using cached result');
       }
@@ -590,7 +601,9 @@ export async function generateContentAtoms(query, apiKey, options = {}) {
   }
 
   try {
+    const claudeStart = Date.now();
     const content = await callClaudeAPI(query, apiKey, CONTENT_ATOMS_PROMPT, ragContext);
+    timings.claude_api = Date.now() - claudeStart;
 
     // Post-process content atoms to fix any incorrect URLs
     const fixedAtoms = fixProductUrls(content.content_atoms || []);
@@ -604,6 +617,7 @@ export async function generateContentAtoms(query, apiKey, options = {}) {
       sourceIds,
       sourceImages,
       classification, // Query classification from RAG
+      timings, // Timing breakdown for this function
     };
   } catch (parseError) {
     console.error('Failed to parse Claude content atoms response:', parseError);

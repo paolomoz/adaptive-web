@@ -8,6 +8,43 @@
  */
 
 import { generateContent, generateContentAtoms } from './lib/claude.js';
+
+/**
+ * Timing tracker for monitoring generation performance
+ */
+class TimingTracker {
+  constructor() {
+    this.startTime = Date.now();
+    this.phases = {};
+    this.currentPhase = null;
+    this.phaseStart = null;
+  }
+
+  startPhase(name) {
+    if (this.currentPhase && this.phaseStart) {
+      this.phases[this.currentPhase] = Date.now() - this.phaseStart;
+    }
+    this.currentPhase = name;
+    this.phaseStart = Date.now();
+  }
+
+  endPhase() {
+    if (this.currentPhase && this.phaseStart) {
+      this.phases[this.currentPhase] = Date.now() - this.phaseStart;
+      this.currentPhase = null;
+      this.phaseStart = null;
+    }
+  }
+
+  getTimings(extras = {}) {
+    this.endPhase();
+    return {
+      total_ms: Date.now() - this.startTime,
+      phases: this.phases,
+      ...extras,
+    };
+  }
+}
 import { getFallbackLayout } from './lib/gemini.js';
 import { createClient as createSupabaseClient } from './lib/supabase.js';
 import { createClient as createCloudflareClient } from './lib/cloudflare-db.js';
@@ -548,14 +585,16 @@ async function getCachedPage(query, supabase) {
  */
 async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
   console.log('Using flexible multi-model pipeline');
+  const timing = new TimingTracker();
 
   // Step 1: Claude generates content atoms with RAG (using Workers AI for embeddings)
+  timing.startPhase('content_generation');
   const ragOptions = env.AI
     ? { supabase, ai: env.AI, env }
     : { env };
 
   const claudeResult = await generateContentAtoms(query, env.ANTHROPIC_API_KEY, ragOptions);
-  const { contentAtoms, contentType, metadata, keywords, layoutBlocks, sourceIds, sourceImages, classification } = claudeResult;
+  const { contentAtoms, contentType, metadata, keywords, layoutBlocks, sourceIds, sourceImages, classification, timings: ragTimings } = claudeResult;
 
   console.log(`Claude generated ${contentAtoms.length} content atoms (type: ${contentType})`);
   if (classification) {
@@ -563,6 +602,7 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
   }
 
   // Step 2: Use Claude's layout selection (or fallback if invalid)
+  timing.startPhase('layout_selection');
   let layoutResult;
   const isValidLayout = layoutBlocks && Array.isArray(layoutBlocks) && layoutBlocks.length > 0;
 
@@ -615,7 +655,9 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
   };
 
   // Step 3: Hybrid image strategy - use RAG images where possible, generate the rest
+  timing.startPhase('image_search');
   let remainingPrompts = [];
+  let ragImageCount = 0;
 
   if (env.IMAGE_VECTORS && classification) {
     // Determine image strategy based on classification
@@ -624,7 +666,7 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
 
     // Find matching images from RAG using semantic search
     const matchedImages = await findMatchingImages(contentAtoms, metadata, classification, env);
-    const ragImageCount = [
+    ragImageCount = [
       matchedImages.hero,
       ...matchedImages.features,
       ...matchedImages.comparison,
@@ -651,20 +693,36 @@ async function generatePageFlexible(query, sessionId, supabase, env, ctx) {
   }
 
   // Save to database
+  timing.startPhase('database_save');
   const page = await supabase.insertPage(pageData);
 
   // Add to search history
   await supabase.addHistory(sessionId, query, page.id);
 
   // Generate remaining images with Imagen 3 (if any)
+  timing.startPhase('image_generation_queue');
+  let imagesToGenerate = 0;
   if (remainingPrompts.length > 0) {
+    imagesToGenerate = remainingPrompts.length;
     ctx.waitUntil(generateImagesBackgroundFlexible(page.id, remainingPrompts, env));
     console.log(`Queued ${remainingPrompts.length} images for Imagen 3 generation`);
   }
 
+  // Build timing report
+  const timings = timing.getTimings({
+    cache_hit: false,
+    images_from_rag: ragImageCount,
+    images_to_generate: imagesToGenerate,
+    rag_sources: sourceIds.length,
+    ...(ragTimings && { rag: ragTimings }),
+  });
+
+  console.log(`Timing: ${JSON.stringify(timings)}`);
+
   return {
     id: page.id,
     ...pageData,
+    timings,
   };
 }
 
@@ -724,6 +782,7 @@ async function generatePageLegacy(query, sessionId, supabase, env, ctx) {
  * @param {object} ctx - Execution context
  */
 export async function generatePage(body, env, ctx) {
+  const startTime = Date.now();
   const { query, session_id: sessionId, pipeline } = body;
 
   if (!query || typeof query !== 'string') {
@@ -738,13 +797,23 @@ export async function generatePage(body, env, ctx) {
   const normalizedQuery = normalizeQuery(query);
 
   // Check for cached page (24-hour TTL)
+  const cacheCheckStart = Date.now();
   const cachedPage = await getCachedPage(normalizedQuery, supabase);
+  const cacheCheckTime = Date.now() - cacheCheckStart;
+
   if (cachedPage) {
     // Add to search history even for cached pages
     await supabase.addHistory(sessionId, query, cachedPage.id);
     return {
       ...cachedPage,
       cached: true,
+      timings: {
+        total_ms: Date.now() - startTime,
+        phases: {
+          cache_check: cacheCheckTime,
+        },
+        cache_hit: true,
+      },
     };
   }
 

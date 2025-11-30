@@ -13,6 +13,47 @@ import { generateEmbeddings } from './lib/embeddings.js';
 import { searchImages, batchIndexImages } from './lib/image-search.js';
 import { retrieveContext } from './lib/rag.js';
 import { createClient as createCloudflareClient } from './lib/cloudflare-db.js';
+import { captionImages } from './caption-images.js';
+
+/**
+ * Reindex product images in Vectorize with updated alt_text and AI captions
+ */
+async function reindexProductImages(env) {
+  const db = env.DB;
+
+  // Fetch product images with their source titles and AI captions
+  const result = await db.prepare(`
+    SELECT i.id, i.r2_url, i.alt_text, i.ai_caption, i.image_type, i.context, i.source_id, s.title as source_title
+    FROM vitamix_images i
+    LEFT JOIN vitamix_sources s ON s.id = i.source_id
+    WHERE i.image_type = 'product'
+  `).all();
+
+  const images = result.results || [];
+  console.log(`Found ${images.length} product images to reindex`);
+
+  if (images.length === 0) {
+    return { success: true, message: 'No product images to reindex', count: 0 };
+  }
+
+  // Process in batches
+  const BATCH_SIZE = 20;
+  let indexed = 0;
+
+  for (let i = 0; i < images.length; i += BATCH_SIZE) {
+    const batch = images.slice(i, i + BATCH_SIZE);
+    const count = await batchIndexImages(batch, env);
+    indexed += count;
+    console.log(`Indexed batch ${Math.floor(i / BATCH_SIZE) + 1}, total: ${indexed}`);
+  }
+
+  return {
+    success: true,
+    message: 'Product images reindexed',
+    total: images.length,
+    indexed,
+  };
+}
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
@@ -176,6 +217,25 @@ export default {
           const imageType = url.searchParams.get('type') || null;
           const images = await searchImages(query, env, { limit, imageType });
           return jsonResponse({ query, images });
+        }
+
+        case '/api/reindex-product-images': {
+          // Reindex product images with updated alt_text
+          if (request.method !== 'POST') {
+            return errorResponse('Method not allowed', 405);
+          }
+          const result = await reindexProductImages(env);
+          return jsonResponse(result);
+        }
+
+        case '/api/caption-images': {
+          // Caption product images with Claude Vision
+          if (request.method !== 'POST') {
+            return errorResponse('Method not allowed', 405);
+          }
+          const body = await request.json();
+          const result = await captionImages(body, env);
+          return jsonResponse(result);
         }
 
         case '/api/suggestions': {

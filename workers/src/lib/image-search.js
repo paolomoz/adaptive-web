@@ -222,26 +222,29 @@ export async function batchIndexImages(images, env) {
   const vectors = [];
 
   for (const image of images) {
-    const searchText = [
-      image.alt_text,
-      image.context,
-      image.source_title,
-      image.image_type,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .slice(0, 500);
+    // Prefer AI caption if available, otherwise fall back to original metadata
+    const searchText = image.ai_caption
+      ? image.ai_caption
+      : [
+          image.alt_text,
+          image.context,
+          image.source_title,
+          image.image_type,
+        ]
+          .filter(Boolean)
+          .join(' ');
 
-    if (!searchText || searchText.length < 10) continue;
+    const trimmedText = searchText.slice(0, 500);
+    if (!trimmedText || trimmedText.length < 10) continue;
 
     try {
-      const embedding = await generateEmbedding(searchText, env.AI);
+      const embedding = await generateEmbedding(trimmedText, env.AI);
       vectors.push({
         id: image.id,
         values: embedding,
         metadata: {
           r2_url: image.r2_url,
-          alt_text: image.alt_text,
+          alt_text: image.ai_caption || image.alt_text, // Use AI caption as alt if available
           image_type: image.image_type,
           context: image.context?.slice(0, 200),
           source_id: image.source_id,
